@@ -1,0 +1,16 @@
+{
+	"include": ["."],
+	"exclude": ["__pycache__", ".ruff_cache"],
+	"typeCheckingMode": "strict",
+	"reportMissingImports": "none",
+	"reportPrivateUsage": false,
+	"reportUnknownParameterType": false,
+	"reportUnknownArgumentType": false,
+	"reportUnknownVariableType": false,
+	"reportUnknownMemberType": false,
+	"reportMissingTypeStubs": false,
+	"reportMissingParameterType": false,
+	"reportUnknownLambdaType": false,
+	"reportMissingTypeArgument": false,
+	"reportGeneralTypeIssues": false
+}
