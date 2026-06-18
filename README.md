@@ -14,7 +14,7 @@ needs it.
 
 ---
 
-## ⚡ Install
+## Install ⚡
 
 > **You install THIS repo** — the standalone `Aphrodite-Hermes` plugin.
 > Do NOT clone the monorepo ([PlayForm/Aphrodite](https://github.com/PlayForm/Aphrodite)).
@@ -40,7 +40,7 @@ On first launch, the plugin **automatically downloads** the `aphrodite` binary
 from [releases](https://github.com/PlayForm/Aphrodite/releases) to
 `~/.hermes/aphrodite/aphrodite`. No Rust toolchain required.
 
-### 📦 Repository Structure
+### Repository Structure 📦
 
 ```
 Aphrodite-Hermes/          ← you are here (standalone plugin)
@@ -67,7 +67,7 @@ Aphrodite/                  ← monorepo (NOT what you install)
 └── aphrodite.toml.example    template config
 ```
 
-### 🔗 Submodule Relationship
+### Submodule Relationship 🔗
 
 This standalone repo is a **git submodule** inside the
 [PlayForm/Aphrodite](https://github.com/PlayForm/Aphrodite) monorepo at
@@ -78,7 +78,7 @@ ref to point at your new commit.
 
 ---
 
-## 🔧 Configuration
+## Configuration 🔧
 
 Copy `aphrodite.toml.example` from the monorepo to `~/.hermes/aphrodite/aphrodite.toml`
 (or rely on the defaults — it works out of the box with `APHRODITE_API_KEY`).
@@ -106,7 +106,7 @@ context_engine = true
 
 ---
 
-## 🛠️ Tools
+## Tools 🛠️
 
 | Tool | Description |
 | :--- | :--- |
@@ -125,7 +125,7 @@ context_engine = true
 
 ---
 
-## 🔗 More
+## More 🔗
 
 - **[Monorepo](https://github.com/PlayForm/Aphrodite)** — full docs, benchmarks, Rust source
 - **[Hermes Agent](https://github.com/NousResearch/hermes-agent)** — the agent framework
