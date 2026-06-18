@@ -1,7 +1,7 @@
 # Aphrodite 💋 Hermes Plugin
 
 > **CCR compression plugin for Hermes Agent — sub‑ms tool output compression,
-> 28‑type classifier, 13 tools, context engine.**
+> 28‑type classifier, 12 tools, context engine.**
 
 Aphrodite intercepts tool output before it reaches the LLM and replaces it with
 compact, structured previews. The agent sees 15 tokens of metadata instead of
@@ -77,7 +77,7 @@ hermes config set terminal.env_passthrough '["APHRODITE_API_KEY","PATH","HOME"]'
 | File | Purpose |
 |------|---------|
 | `__init__.py` | Entry point — proxy auto‑launch, version exports |
-| `plugin.yaml` | Hermes plugin manifest (13 tools, 5 hooks) |
+| `plugin.yaml` | Hermes plugin manifest (12 tools, 5 hooks) |
 | `_core/` | Constants, TOML loader, config resolvers, settings |
 | `_engine.py` | ContextEngine — compresses middle turns to CCR |
 | `_hooks/` | Hermes hook handlers (transform, catalog, stats, …) |
@@ -85,7 +85,7 @@ hermes config set terminal.env_passthrough '["APHRODITE_API_KEY","PATH","HOME"]'
 | `_proxy/` | Proxy lifecycle (env, health, launch, markers) |
 | `_resolve.py` | Recursive CCR marker expansion (3 levels deep) |
 | `_binary.py` | Binary auto‑download + platform detection |
-| `_tools.py` | 13 aphrodite_* tool handlers + JSON schemas |
+| `_tools.py` | 12 aphrodite_* tool handlers + JSON schemas |
 | `_inline.py` | zlib fallback (works without proxy) |
 | `_automation.py` | Rhai scripting engine |
 | `pyproject.toml` | Python ≥3.11, no runtime deps |
@@ -141,7 +141,6 @@ and all available options.
 | `aphrodite_reclassify` | Retroactive metadata enrichment |
 | `aphrodite_prefetch` | Background file read — markers instantly, files load concurrently |
 | `aphrodite_prefetch_status` | Prefetch queue status |
-| `aphrodite_poll_container` | Container health/heartbeat |
 
 ---
 
