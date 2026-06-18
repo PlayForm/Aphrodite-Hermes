@@ -1,4 +1,4 @@
-"""aphrodite — classifier poll for content retrieval decisions."""
+"""aphrodite - classifier poll for content retrieval decisions."""
 
 import logging
 
@@ -12,7 +12,7 @@ def _classifier_says_skip(klass: dict) -> bool:
 
     If the classifier signals clean/inert output (0E/0W build, exit=0 terminal,
     0 match search, etc.), we skip CCR marker emission. The preview IS the
-    complete story — creating a ``<<<CCR:hash>>>``` marker just baits the LLM
+    complete story - creating a ``<<<CCR:hash>>>``` marker just baits the LLM
     into a wasteful retrieval round-trip.
 
     The content IS still stored in CCR for search/history. We just don't

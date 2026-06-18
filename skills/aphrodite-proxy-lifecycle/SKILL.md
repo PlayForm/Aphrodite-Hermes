@@ -23,9 +23,9 @@ it kills the stale proxy and launches the new binary.
 
 ### Version Sources
 
-- `BIN_VERSION` in `_core/config.py` — plugin's expected binary version
+- `BIN_VERSION` in `_core/config.py` - plugin's expected binary version
 - Running version from proxy `/health` JSON `"version"` field
-- `PLUGIN_VERSION` — Python plugin version
+- `PLUGIN_VERSION` - Python plugin version
 
 ## Background Process Workflow
 
@@ -42,11 +42,11 @@ terminal(command="curl -s http://localhost:9798/health")
 ```
 
 - **Builds/tests >10s**: background + notify_on_complete
-- **Servers/watchers**: background (no notify — never exit)
+- **Servers/watchers**: background (no notify - never exit)
 - **Progress**: `process(action='poll')` for non-blocking output checks
 - **Verification**: foreground for fast checks after background completion
 
 ## References
 
-- `references/background-process-workflow.md` — detailed pattern
-- `references/proxy-version-auto-restart.md` — implementation details
+- `references/background-process-workflow.md` - detailed pattern
+- `references/proxy-version-auto-restart.md` - implementation details

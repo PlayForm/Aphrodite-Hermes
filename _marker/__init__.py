@@ -1,4 +1,4 @@
-"""aphrodite — marker subpackage: encoding, compression, preview, parsing."""
+"""aphrodite - marker subpackage: encoding, compression, preview, parsing."""
 
 from .classify import _classify_content
 from .compress import _compress_via_proxy, _get_conn, _put_conn

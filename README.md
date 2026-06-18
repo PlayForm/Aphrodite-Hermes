@@ -1,11 +1,11 @@
 # Aphrodite 💋 Hermes Plugin
 
-> **CCR compression plugin for Hermes Agent — sub‑ms tool output compression,
+> **CCR compression plugin for Hermes Agent - sub‑ms tool output compression,
 > 28‑type classifier, 12 tools, context engine.**
 
 Aphrodite intercepts tool output before it reaches the LLM and replaces it with
 compact, structured previews. The agent sees 15 tokens of metadata instead of
-500 tokens of raw text — and retrieves the full content only when it actually
+500 tokens of raw text - and retrieves the full content only when it actually
 needs it.
 
 [![plugin](https://img.shields.io/badge/plugin-v1.62.30-purple)](plugin.yaml)
@@ -16,9 +16,9 @@ needs it.
 
 ## ⚡ Installation
 
-> **You install this repo — the standalone `Aphrodite-Hermes` plugin. Do NOT
+> **You install this repo - the standalone `Aphrodite-Hermes` plugin. Do NOT
 > clone the monorepo ([PlayForm/Aphrodite](https://github.com/PlayForm/Aphrodite))
-> — that's the full Rust proxy source + docs.**
+> - that's the full Rust proxy source + docs.**
 
 ### 1. Clone the plugin
 
@@ -76,10 +76,10 @@ hermes config set terminal.env_passthrough '["APHRODITE_API_KEY","PATH","HOME"]'
 
 | File | Purpose |
 |------|---------|
-| `__init__.py` | Entry point — proxy auto‑launch, version exports |
+| `__init__.py` | Entry point - proxy auto‑launch, version exports |
 | `plugin.yaml` | Hermes plugin manifest (12 tools, 5 hooks) |
 | `_core/` | Constants, TOML loader, config resolvers, settings |
-| `_engine.py` | ContextEngine — compresses middle turns to CCR |
+| `_engine.py` | ContextEngine - compresses middle turns to CCR |
 | `_hooks/` | Hermes hook handlers (transform, catalog, stats, …) |
 | `_marker/` | 28‑type classifier, template renderer, marker parse |
 | `_proxy/` | Proxy lifecycle (env, health, launch, markers) |
@@ -99,7 +99,7 @@ All settings live in `aphrodite.toml` (searched in: CWD → `~/.hermes/aphrodite
 → repo root).
 
 ```toml
-# Minimal example — place in ~/.hermes/aphrodite/aphrodite.toml
+# Minimal example - place in ~/.hermes/aphrodite/aphrodite.toml
 [defaults]
 api_url = "https://api.deepseek.com"
 model = "deepseek-v4-pro"
@@ -139,18 +139,18 @@ and all available options.
 | `aphrodite_test` | Smoke test suite (quick / full / pipeline) |
 | `aphrodite_catalog` | Full CCR catalog with hashes, types, sizes |
 | `aphrodite_reclassify` | Retroactive metadata enrichment |
-| `aphrodite_prefetch` | Background file read — markers instantly, files load concurrently |
+| `aphrodite_prefetch` | Background file read - markers instantly, files load concurrently |
 | `aphrodite_prefetch_status` | Prefetch queue status |
 
 ---
 
 ## 🔗 More
 
-- **[Monorepo](https://github.com/PlayForm/Aphrodite)** — full docs, benchmark
+- **[Monorepo](https://github.com/PlayForm/Aphrodite)** - full docs, benchmark
   data, Rust proxy source
-- **[Hermes Agent](https://github.com/NousResearch/hermes-agent)** — the agent
+- **[Hermes Agent](https://github.com/NousResearch/hermes-agent)** - the agent
   framework this plugin targets
 
 ---
 
-*CC0‑1.0 — public domain. A PlayForm project.*
+*CC0‑1.0 - public domain. A PlayForm project.*

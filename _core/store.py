@@ -1,4 +1,4 @@
-"""aphrodite — inline compression store with trigram index, LRU eviction, size formatting."""
+"""aphrodite - inline compression store with trigram index, LRU eviction, size formatting."""
 
 from collections import OrderedDict
 

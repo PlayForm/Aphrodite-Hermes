@@ -1,4 +1,4 @@
-"""aphrodite — tool result compression via CCR."""
+"""aphrodite - tool result compression via CCR."""
 
 import hashlib
 import json

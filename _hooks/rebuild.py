@@ -1,4 +1,4 @@
-"""aphrodite — rebuild handler: build crate, kill proxies, replace binary, restart.
+"""aphrodite - rebuild handler: build crate, kill proxies, replace binary, restart.
 
 Dev mode: if Cargo.toml exists, builds from Rust source.
 User mode (standalone install): re-downloads binary from GitHub Releases.
@@ -42,11 +42,11 @@ def _rebuild_handler(args=None, **kwargs):
     repo = _find_cargo_toml()
 
     if repo is None:
-        # Standalone install — no Rust source, re-download from releases
-        _log.info("no Cargo.toml found — standalone install, downloading from releases")
+        # Standalone install - no Rust source, re-download from releases
+        _log.info("no Cargo.toml found - standalone install, downloading from releases")
         return _download_rebuild()
 
-    # Dev mode — build from source
+    # Dev mode - build from source
     result = subprocess.run(
         ["cargo", "build", "--release", "-p", "aphrodite"],
         cwd=repo,
@@ -70,7 +70,7 @@ def _download_rebuild():
     from .._binary import _download_binary
 
     if not _download_binary():
-        return '{"error": "download failed — check network or GitHub Releases"}'
+        return '{"error": "download failed - check network or GitHub Releases"}'
 
     killed = _kill_proxies()
     restarted = _restart_proxies()

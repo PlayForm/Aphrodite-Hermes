@@ -1,4 +1,4 @@
-"""aphrodite — integration smoke test handler."""
+"""aphrodite - integration smoke test handler."""
 
 import json
 import logging
@@ -23,7 +23,7 @@ _log = logging.getLogger("aphrodite.hooks.test")
 
 
 def _test_handler(args=None, **kwargs):
-    """Full smoke test suite — exercises all tools, hooks, compression, search, retrieve."""
+    """Full smoke test suite - exercises all tools, hooks, compression, search, retrieve."""
     from .._tools import _compress_handler, _retrieve_handler
 
     args = args if isinstance(args, dict) else {}
@@ -129,7 +129,7 @@ def _test_handler(args=None, **kwargs):
 
 TEST_SCHEMA = {
     "name": "aphrodite_test",
-    "description": "Run full smoke test suite — compress, retrieve, search, stats, files, "
+    "description": "Run full smoke test suite - compress, retrieve, search, stats, files, "
     "diff, proxy health. Modes: quick, full, matrix, pipeline.",
     "parameters": {
         "type": "object",

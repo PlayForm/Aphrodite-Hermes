@@ -34,12 +34,12 @@ compress.
 
 ## Centers
 
-LLM passes `_ccr_center` in tool params — travels with marker through
+LLM passes `_ccr_center` in tool params - travels with marker through
 retrievals:
 
-- `code_rust` / `code_python` — code-aware extraction
-- `debug` — full errors, deeper extraction
-- `compact` — minimal previews
+- `code_rust` / `code_python` - code-aware extraction
+- `debug` - full errors, deeper extraction
+- `compact` - minimal previews
 - Centers embed as `;center=X` in marker structure line
 
 ## Submodule Sync
@@ -68,7 +68,7 @@ Always pass `GIT_EDITOR=true` to suppress tag prompts.
 - Prometheus counters must end in `_total`
 - Submodule commits must commit inside submodule first, then git add --force in
   parent
-- rand::random() in rand 0.10 IS thread-local — no need to replace with
+- rand::random() in rand 0.10 IS thread-local - no need to replace with
   thread_rng()
-- format! requires string literal, not const — use a function for templates
-- rhai::Engine is !Send — store source strings, create Engine per call
+- format! requires string literal, not const - use a function for templates
+- rhai::Engine is !Send - store source strings, create Engine per call

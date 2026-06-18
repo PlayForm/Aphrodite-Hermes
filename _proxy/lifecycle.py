@@ -169,7 +169,7 @@ def on_start(**kw) -> str | None:
     if not _ensure_binary():
         _log.error("cannot start - binary not available")
         return None
-    # Hot-reload TOML config — picks up aphrodite.toml edits without restart
+    # Hot-reload TOML config - picks up aphrodite.toml edits without restart
     reload_config()
     # ── Start settings file watcher (polls runtime-settings.json) ─
     _start_settings_watcher()
@@ -182,7 +182,7 @@ def on_start(**kw) -> str | None:
     if not env.get("APHRODITE_API_KEY"):
         _log.warning("APHRODITE_API_KEY not found in environment - proxy won't start")
         return None
-    # Launch both proxies — skip if alive AND version matches expected.
+    # Launch both proxies - skip if alive AND version matches expected.
     # If a running proxy's version is stale, kill it and launch the new binary.
     # SQLite CCR store survives restarts (disk-backed), in-memory cache is rebuilt.
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
@@ -195,7 +195,7 @@ def on_start(**kw) -> str | None:
                     _log.debug("proxy %s already running expected version %s", name, running_ver)
                     continue
                 _log.info(
-                    "proxy %s version mismatch (running=%s, expected=%s) — restarting",
+                    "proxy %s version mismatch (running=%s, expected=%s) - restarting",
                     name, running_ver or "?", BIN_VERSION,
                 )
                 # Kill stale proxy

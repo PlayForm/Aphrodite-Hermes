@@ -1,4 +1,4 @@
-"""aphrodite — thresholds, TOML loader, config resolvers, model family mapping."""
+"""aphrodite - thresholds, TOML loader, config resolvers, model family mapping."""
 
 import logging
 import os
@@ -10,8 +10,8 @@ from .state import _state
 # ── Pre-baked constants ───────────────────────────────────────
 PORTS = {"cache": 9797, "token": 9798}
 REPO = "PlayForm/Aphrodite"
-BIN_VERSION = "v0.8.23"  # binary download version (must match Cargo.toml)
-PLUGIN_VERSION = "1.62.38"  # plugin version
+BIN_VERSION = "v0.8.24"  # binary download version (must match Cargo.toml)
+PLUGIN_VERSION = "1.62.39"  # plugin version
 BINARY_DIR = os.path.join(os.path.expanduser("~"), ".hermes", "aphrodite")
 BINARY = os.path.join(BINARY_DIR, "aphrodite")
 ENV_FILE = os.path.join(os.path.expanduser("~"), ".hermes", ".env")
@@ -39,7 +39,7 @@ def _load_toml_config() -> dict:
         try:
             import tomli as _toml  # type: ignore[import-not-found]
         except ImportError:
-            _log.debug("toml: no tomllib/tomli — TOML config skipped")
+            _log.debug("toml: no tomllib/tomli - TOML config skipped")
             _CONFIG = {}
             return _CONFIG
 
@@ -278,7 +278,7 @@ def _init_config() -> None:
 
 
 def reload_config() -> None:
-    """Hot-reload TOML config — clear cache and re-evaluate all constants.
+    """Hot-reload TOML config - clear cache and re-evaluate all constants.
 
     Called by on_start() at session start so aphrodite.toml edits take
     effect without a full Hermes restart.
@@ -304,9 +304,9 @@ if _DEV:
 # ── Model-aware template dispatch ──────────────────────────────────────────
 # Different LLM families process structured vs code-excerpt previews
 # differently. The model family selects a preview strategy:
-#   compact    — [type:key=val]  (Claude, default)
-#   code_first — code excerpts before metadata  (DeepSeek, coding models)
-#   balance    — metadata + short excerpt  (GPT, general-purpose)
+#   compact    - [type:key=val]  (Claude, default)
+#   code_first - code excerpts before metadata  (DeepSeek, coding models)
+#   balance    - metadata + short excerpt  (GPT, general-purpose)
 
 MODEL_FAMILY_MAP: dict[str, str] = {
     "claude": "compact",

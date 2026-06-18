@@ -1,7 +1,7 @@
 ---
 name: aphrodite-compression-architecture
 description:
-    "Compression architecture reference — Headroom's 9 semantic compressors vs
+    "Compression architecture reference - Headroom's 9 semantic compressors vs
     Aphrodite's content-addressed storage, integration opportunities, benchmark
     pipeline, and model-aware preview design."
 version: 1.0.0
@@ -30,7 +30,7 @@ skills must use the correct remote. Verify with `git remote -v`.
 
 Combined performance + correctness pipeline:
 
-1. `python3 scripts/benchmark.py` — direct HTTP benchmark against :9798
+1. `python3 scripts/benchmark.py` - direct HTTP benchmark against :9798
     - Phase 1: proxy health + stats
     - Phase 2: compression across 5 sizes × 3 types (15 variants, 3–5 iterations
       each)
@@ -39,7 +39,7 @@ Combined performance + correctness pipeline:
     - Output: `.hermes/benchmark-<ts>.json` + `.hermes/benchmark-history.jsonl`
     - Compares against previous run (Δ latency)
 
-2. `aphrodite_test mode=pipeline` — correctness + feature toggles
+2. `aphrodite_test mode=pipeline` - correctness + feature toggles
     - 9 smoke tests (compress, retrieve, stats, health, metrics)
     - Feature toggles: debug on/off, engine on/off
     - Saves `.hermes/aphrodite/.test-results.json` with regression delta
@@ -55,7 +55,7 @@ analysis.
 Quick summary:
 
 - Aphrodite: 1× ratio (content-addressed storage, no semantic reduction)
-- Headroom: 9 strategies — CODE_AWARE (5–8×), SMART_CRUSHER, SEARCH, LOG,
+- Headroom: 9 strategies - CODE_AWARE (5–8×), SMART_CRUSHER, SEARCH, LOG,
   KOMPRESS (3–5×), DIFF, HTML, MIXED, PASSTHROUGH
 - Integration: proxy could accept `strategy=` param, call Headroom compressor,
   store reduced content in CCR

@@ -14,11 +14,11 @@ related_skills: [aphrodite-tool-guide, aphrodite-dev-workflow]
 Knowledge about the boundaries (seams) between the three aphrodite compression
 layers:
 
-1. **Proxy** (Rust binary, :9797 cache / :9798 token) — stores CCR, produces
+1. **Proxy** (Rust binary, :9797 cache / :9798 token) - stores CCR, produces
    markers
-2. **Python Plugin** (context engine, inline store) — auto-resolves markers
+2. **Python Plugin** (context engine, inline store) - auto-resolves markers
    (when enabled), provides tools
-3. **Hermes Agent** (LLM) — sees markers, calls tools, triggers compression
+3. **Hermes Agent** (LLM) - sees markers, calls tools, triggers compression
 
 Understanding these boundaries is essential for testing and debugging why
 content appears or doesn't appear.
@@ -36,7 +36,7 @@ This is the most commonly confused boundary.
 | Marker removal | Marker stays in conversation | Small markers (< limit) resolved in-place                                                                                   |
 
 **Source**: `_hooks/session.py:155-189`, `_core/config.py`.
-`APHRODITE_NO_AUTO_EXPAND` does NOT exist in source — it was fictional in old
+`APHRODITE_NO_AUTO_EXPAND` does NOT exist in source - it was fictional in old
 skills.
 
 **Testing rule**: Auto-expand is effectively OFF by default (limit=5 bytes).
@@ -54,17 +54,17 @@ behavior, examine what the LLM sees in its context (raw markers vs expanded).
 **Cross-store routing**: The Python plugin routes `aphrodite_retrieve` through
 the token proxy (:9798). Content stored via `/ccr/create` on :9798 is
 retrievable from the Python tool. But the cache proxy (:9797) has its OWN store
-— content there is NOT visible to the token proxy and vice versa.
+- content there is NOT visible to the token proxy and vice versa.
 
 ## Boundary 3: Center Annotation vs Storage
 
 The `_ccr_center` parameter (e.g., `code_rust`) travels with the CCR marker in
 its format string (`;center=X`) but has **zero effect on storage**:
 
-- `compute_key()` hashes content-only — same content with different centers
+- `compute_key()` hashes content-only - same content with different centers
   produces the same hash
-- `ccr_put()` stores bare content — center is discarded
-- Retrieval returns original content — center is not stored or restored
+- `ccr_put()` stores bare content - center is discarded
+- Retrieval returns original content - center is not stored or restored
 - The center survives only in the marker string produced by
   `format_ccr_output()`
 
@@ -78,7 +78,7 @@ Subagents (delegate_task workers) are separate sessions with their own:
 
 - Python inline store (content compressed by Worker A is invisible to Worker B)
 - Terminal/file sessions
-- Proxy connections (shared — both hit the same :9797/:9798)
+- Proxy connections (shared - both hit the same :9797/:9798)
 
 **Cross-worker sharing**: To share compressed content between workers:
 
@@ -121,6 +121,6 @@ aphrodite_retrieve(hash="<hash>")
 
 ## Related
 
-- `aphrodite-tool-guide` — tool reference, master-worker pattern, common
+- `aphrodite-tool-guide` - tool reference, master-worker pattern, common
   pitfalls
-- `aphrodite-dev-workflow` — release pipeline, profile switching, build monitor
+- `aphrodite-dev-workflow` - release pipeline, profile switching, build monitor

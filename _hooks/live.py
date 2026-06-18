@@ -1,9 +1,9 @@
-"""aphrodite — live container bubble.
+"""aphrodite - live container bubble.
 
 Self-contained, zero-dependency module. Invisible until activated.
 When APHRODITE_LIVE_CONTAINER=1, wraps read_file results in CCR markers.
 Communicates directly with the aphrodite proxy at :9798.
-No imports from the aphrodite plugin — works as a standalone patch.
+No imports from the aphrodite plugin - works as a standalone patch.
 
 Apply to Hermes core by adding to file_tools.py:
     from live_container import wrap_read_result
@@ -48,7 +48,7 @@ def _wrap_as_live_container(content: str, tool_name: str) -> str | None:
     size = len(content)
     return (
         f"<<<CCR:{h}|live|{size}>>>\n"
-        f"Live container — content stored. "
+        f"Live container - content stored. "
         f"Use aphrodite_retrieve({h}) to fetch when needed. "
         f"Continue reasoning without waiting."
     )
@@ -94,7 +94,7 @@ def wrap_read_result(result_json: str) -> str:
     size = len(result_json)
     return (
         f"<<<CCR:{h}|live|{size}>>>\n"
-        f"Live container — content stored. "
+        f"Live container - content stored. "
         f"Use aphrodite_retrieve({h}) to fetch when needed. "
         f"Continue reasoning without waiting."
     )

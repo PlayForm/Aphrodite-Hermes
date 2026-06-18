@@ -1,4 +1,4 @@
-"""aphrodite — file reference tracking and listing tool."""
+"""aphrodite - file reference tracking and listing tool."""
 
 import json
 import logging

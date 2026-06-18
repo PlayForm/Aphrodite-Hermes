@@ -1,4 +1,4 @@
-"""aphrodite — session management: instruction injection, pre-LLM hook, turn storage."""
+"""aphrodite - session management: instruction injection, pre-LLM hook, turn storage."""
 
 import json
 import logging

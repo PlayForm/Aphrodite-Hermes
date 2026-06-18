@@ -1,4 +1,4 @@
-"""aphrodite — CCR search handler with trigram indexing."""
+"""aphrodite - CCR search handler with trigram indexing."""
 
 import json
 import logging
@@ -102,7 +102,7 @@ def _search_handler(args=None, **kwargs):
 
 SEARCH_SCHEMA = {
     "name": "aphrodite_search",
-    "description": "Search across CCR entries — find compressed content by keyword or type. "
+    "description": "Search across CCR entries - find compressed content by keyword or type. "
     "Use to locate previously compressed context without knowing the hash.",
     "parameters": {
         "type": "object",

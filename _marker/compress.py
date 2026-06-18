@@ -1,4 +1,4 @@
-"""Proxy compression — keep-alive HTTP connection pool."""
+"""Proxy compression - keep-alive HTTP connection pool."""
 
 import contextlib
 import http.client
@@ -49,7 +49,7 @@ def _compress_via_proxy(content, target_port, headers=None):
     overhead on repeated calls to the same proxy port.
 
     Sends raw bytes with Content-Type: application/octet-stream to skip
-    JSON serialization overhead — the proxy reads the request body directly.
+    JSON serialization overhead - the proxy reads the request body directly.
     """
     try:
         data = content.encode("utf-8")

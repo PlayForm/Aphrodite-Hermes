@@ -1,4 +1,4 @@
-"""aphrodite — retroactive reclassification of CCR entries with structured metadata."""
+"""aphrodite - retroactive reclassification of CCR entries with structured metadata."""
 
 import contextlib
 import json

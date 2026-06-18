@@ -14,7 +14,7 @@ def _make_ccr_preview(content: str, klass: dict | None = None, model_family: str
     Args:
         content: Raw content string.
         klass: Pre-computed classification dict. If None, classified inline.
-        model_family: 'compact' | 'code_first' | 'balance' — selects template set.
+        model_family: 'compact' | 'code_first' | 'balance' - selects template set.
 
     Returns:
         A rich, single-line preview string (≤ preview_max_chars, pipe-safe).

@@ -1,5 +1,5 @@
 # ruff: noqa: E402
-"""aphrodite — hook handlers (split across submodules for maintainability).
+"""aphrodite - hook handlers (split across submodules for maintainability).
 
 Re-exports all public symbols from submodules. Each submodule is <250 lines
 with one primary export pattern.

@@ -1,4 +1,4 @@
-"""aphrodite — conversation turn diff handler."""
+"""aphrodite - conversation turn diff handler."""
 
 import json
 import logging
@@ -27,7 +27,7 @@ def _fmt_diff(data: dict) -> str:
 
 
 def _diff_handler(args=None, **kwargs):
-    """Show conversation turn diffs — what was discussed in recent turns."""
+    """Show conversation turn diffs - what was discussed in recent turns."""
     if not _conv_index:
         return json.dumps({"turns": 0, "hint": "No turn history yet"})
     turns = []
@@ -39,7 +39,7 @@ def _diff_handler(args=None, **kwargs):
 
 DIFF_SCHEMA = {
     "name": "aphrodite_diff",
-    "description": "Show conversation turn history — what was discussed, compressed, "
+    "description": "Show conversation turn history - what was discussed, compressed, "
     "and stored across turns. Use to understand context evolution.",
     "parameters": {"type": "object", "properties": {}},
 }

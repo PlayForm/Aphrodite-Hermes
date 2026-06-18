@@ -1,7 +1,7 @@
 name: aphrodite
-version: 1.62.38
+version: 1.62.39
 description:
-    "CCR compression plugin — 28-type classifier, 13 tools, context engine,
+    "CCR compression plugin - 28-type classifier, 13 tools, context engine,
     TOML-driven templates."
 kind: standalone
 min_hermes_version: "0.16.0"
@@ -29,7 +29,7 @@ provides_tools:
 # Engine threshold: -1=always compress, 0=disabled, >0=fill% (see _core.py, APHRODITE_ENGINE_THRESHOLD_PCT)
 # Ships 9 skills: compression architecture, proxy lifecycle, tool guide, context engine, coding defaults, context efficiency, boundary behaviors, output formatting, presentation
 install_message: |
-    aphrodite v1.62.38  —  CCR compression plugin for Hermes Agent.
+    aphrodite v1.62.38  -  CCR compression plugin for Hermes Agent.
     Proxies: token (:9798, SQLite, >1KB), cache (:9797, in-memory, >8KB).
     Engine: context_engine=true in aphrodite.toml (default-on).
     Debug: APHRODITE_DEBUG=1 hermes ...

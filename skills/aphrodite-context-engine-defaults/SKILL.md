@@ -11,7 +11,7 @@ related_skills: [aphrodite-auto-expand-testing, aphrodite-boundary-behaviors]
 
 # Aphrodite Context Engine Defaults
 
-The context engine is **default-on** — three-layer chain:
+The context engine is **default-on** - three-layer chain:
 
 | Layer            | Source                                                   | Value              |
 | ---------------- | -------------------------------------------------------- | ------------------ |
@@ -30,16 +30,16 @@ Disable with: `APHRODITE_CONTEXT_ENGINE=0` or TOML `context_engine = false`.
 ## Auto-Expand Is Effectively OFF By Default
 
 `aphrodite.toml:42`: `auto_expand_limit = 5`. This sets `AUTO_EXPAND_LIMIT = 5`
-— only markers with original content < 5 bytes get auto-resolved. Nothing real
+- only markers with original content < 5 bytes get auto-resolved. Nothing real
 meets that threshold.
 
-**The context engine compresses but auto-expand doesn't resolve** — this is the
+**The context engine compresses but auto-expand doesn't resolve** - this is the
 default. The LLM sees raw `<<<CCR:hash|context|N>>>` markers.
 
 **To ENABLE auto-expand** (resolve markers inline): `APHRODITE_AUTO_EXPAND=1`
 (sets limit to 51200 = 50KB).
 
-**`APHRODITE_NO_AUTO_EXPAND` does NOT exist in source** — it was fictional in
+**`APHRODITE_NO_AUTO_EXPAND` does NOT exist in source** - it was fictional in
 old skills. Default is already raw markers.
 
 Source: `_core/config.py:161-163`, `_hooks/session.py:155-189`.

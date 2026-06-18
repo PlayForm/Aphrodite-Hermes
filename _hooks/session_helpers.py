@@ -1,4 +1,4 @@
-"""aphrodite — session helper utilities: turn grouping, preview extraction, read keywords."""
+"""aphrodite - session helper utilities: turn grouping, preview extraction, read keywords."""
 
 
 def _group_into_turns(conversation_history):

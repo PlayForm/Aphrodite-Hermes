@@ -1,4 +1,4 @@
-"""aphrodite — terminal output compression via CCR."""
+"""aphrodite - terminal output compression via CCR."""
 
 import hashlib
 import logging
@@ -30,7 +30,7 @@ _log = logging.getLogger("aphrodite.hooks.terminal")
 
 def _transform_terminal_hook(command="", output="", returncode=0, **kwargs):
     """Compress terminal output via CCR on-the-fly. Proxy first, inline fallback.
-    Build output gets smart summarization — repeated patterns collapsed."""
+    Build output gets smart summarization - repeated patterns collapsed."""
     _t0 = time.time()
     if _DEV:
         return output
@@ -93,7 +93,7 @@ def _transform_terminal_hook(command="", output="", returncode=0, **kwargs):
 
             if not errors and not warnings:
                 if DEBUG_LOGGING:
-                    _log.debug("terminal_hook: clean build — inline summary, no CCR")
+                    _log.debug("terminal_hook: clean build - inline summary, no CCR")
                 return summary
             out_len = len(summary)
             if DEBUG_LOGGING:

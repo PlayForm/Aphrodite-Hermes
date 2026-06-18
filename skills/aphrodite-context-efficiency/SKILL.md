@@ -2,7 +2,7 @@
 name: aphrodite-context-efficiency
 description:
     Techniques for minimizing token usage when working with aphrodite
-    compression — audit patterns, tool selection, and compression policy
+    compression - audit patterns, tool selection, and compression policy
     awareness.
 version: 1.0.0
 platforms: [macos]
@@ -17,12 +17,12 @@ How to keep sessions lean when aphrodite compression is active.
 When scanning codebases or verifying fixes, prefer `search_files` with targeted
 patterns over `read_file` with broad slices. Two reasons:
 
-1. `search_files` output is auto-compressed into CCR markers — each match is a
+1. `search_files` output is auto-compressed into CCR markers - each match is a
    tiny `<<<CCR:hash|tool|size>>>` instead of hundreds of raw lines
 2. `search_files` with specific regex patterns returns only relevant lines, not
    the entire file
 
-Real example — verifying 18 audit fixes across proxy.rs (2182 lines):
+Real example - verifying 18 audit fixes across proxy.rs (2182 lines):
 
 - 3 × `read_file` = ~1500 raw lines → 40K+ tokens
 - 10 × `search_files` with patterns → ~5K tokens compressed
@@ -37,14 +37,14 @@ Multiple tool calls that don't depend on each other MUST be dispatched in ONE
 response. Hermes runs them concurrently. This applies to: `read_file`,
 `search_files`, `aphrodite_prefetch`, and any other independent I/O.
 
-Example — reading 3 files:
+Example - reading 3 files:
 
 ```
 ❌ Serial:  read_file(A) → wait → read_file(B) → wait → read_file(C)
 ✅ Batch:   read_file(A) + read_file(B) + read_file(C) in one response
 ```
 
-The memory instruction `BATCH INDEPENDENT TOOL CALLS` is active — follow it.
+The memory instruction `BATCH INDEPENDENT TOOL CALLS` is active - follow it.
 
 ## Compression Awareness
 
@@ -61,7 +61,7 @@ Understand what compresses and what doesn't:
 **Critical efficiency principle**: When content is compressed, the returned
 `<<<CCR:hash|type|size>>>` marker IS the verification. You do NOT need to
 `aphrodite_retrieve` the content back just to confirm compression worked. The
-hash exists, the type is correct, the size is non-zero — that's proof.
+hash exists, the type is correct, the size is non-zero - that's proof.
 
 Retrieving to verify wastes:
 
@@ -82,12 +82,12 @@ the result when output is small. Exploit this:
    `search_files` with 3 short matches stays inline; with 50 matches it
    compresses. Target the exact symbol, not broad patterns.
 2. **Read the inline match**: If `search_files` returns inline content (no CCR
-   wrapper) and the matching line contains your answer — stop. You already have
+   wrapper) and the matching line contains your answer - stop. You already have
    it.
 3. **`files_only` for location**: When you just need to find WHERE something
-   lives, use `output_mode='files_only'` — tiny output, almost never compresses.
+   lives, use `output_mode='files_only'` - tiny output, almost never compresses.
 4. **When matches ARE compressed**: Check if the match count + file paths in the
-   preview snippet tell you enough. Often they do — you know which files to
+   preview snippet tell you enough. Often they do - you know which files to
    target next without retrieving.
 
 ## Config File Exclusion
@@ -99,7 +99,7 @@ rarely need retrieval because:
   metadata)
 - `search_files` with narrow patterns extracts the one field you need without
   retrieving the whole file
-- You've seen these files before — they only change during explicit version
+- You've seen these files before - they only change during explicit version
   bumps
 
 **Skip retrieval for these unless you're about to edit them:**
@@ -107,7 +107,7 @@ rarely need retrieval because:
 | File             | Why skip                                               |
 | ---------------- | ------------------------------------------------------ |
 | `Cargo.toml`     | Version + deps only; `search_files` for the one field  |
-| `pyproject.toml` | Same — metadata; narrow search beats full read         |
+| `pyproject.toml` | Same - metadata; narrow search beats full read         |
 | `package.json`   | Same pattern                                           |
 | `go.mod`         | Module path + deps                                     |
 | `Makefile`       | Target names; `search_files(pattern='^[a-z].*:')`      |
@@ -115,7 +115,7 @@ rarely need retrieval because:
 | `CHANGELOG.md`   | Use `read_file(offset=1, limit=30)` for recent entries |
 
 If you MUST read a config file, use `read_file` with tight `offset`/`limit`
-bounds — don't retrieve a 200-line TOML just to check a version string on
+bounds - don't retrieve a 200-line TOML just to check a version string on
 line 3.
 
 ## Pitfalls
@@ -124,20 +124,20 @@ line 3.
   tokens
 - Running `cargo fmt` then retrieving the full diff (34KB whitespace noise)
   defeats compression
-- Sequential tool calls when independent ones could batch — adds unnecessary
+- Sequential tool calls when independent ones could batch - adds unnecessary
   turn overhead
-- Retrieving `Cargo.toml` / `pyproject.toml` just to check a version —
+- Retrieving `Cargo.toml` / `pyproject.toml` just to check a version -
   `search_files` inline match already has it
 - Retrieving a `search_files` result when the match count + file list is
   sufficient context
 - **Over-skilling**: loading skills you don't need. A terse user trigger means
-  "work on the obvious task" — not "load every related skill". Load skills only
+  "work on the obvious task" - not "load every related skill". Load skills only
   when the task is clear
 - **Duplicate calls**: never re-run a terminal, skill_view, or retrieve whose
   result you just received. The output is cached; a duplicate returns identical
-  content — wasted tokens
+  content - wasted tokens
 - **Thinking spiral**: when "Σ ~N total" climbs past 100 without action, you're
   over-thinking. Make a tool call or give the user output
 - **Compressed previews are data**: `[json:success,name,description...]` and
   `[tool: ]` from compressed skill_view results mean compression worked. The
-  preview IS the summary — only retrieve if it hints at unknown content you need
+  preview IS the summary - only retrieve if it hints at unknown content you need

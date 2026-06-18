@@ -1,4 +1,4 @@
-"""aphrodite — git summary, auto-commit reminder, auto-build watch."""
+"""aphrodite - git summary, auto-commit reminder, auto-build watch."""
 
 import logging
 import os

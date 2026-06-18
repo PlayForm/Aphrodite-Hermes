@@ -1,4 +1,4 @@
-"""aphrodite _core — re-exports everything from the original _core.py split into
+"""aphrodite _core - re-exports everything from the original _core.py split into
 config, store, template, struct, and state submodules."""
 
 # ── config.py ──────────────────────────────────────────────────

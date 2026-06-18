@@ -67,7 +67,7 @@ def _env_val(val: str, key_name: str = "") -> str:
 def _inject_expand_guidance() -> str:
     """Return auto-expand guidance string explaining that tool CCR markers are resolved inline."""
     return (
-        "💋 Tool outputs are auto-expanded — you see full content inline, "
+        "💋 Tool outputs are auto-expanded - you see full content inline, "
         "no <<<CCR:...>>> markers for tool results. "
         "If you see a CCR marker, retrieve only if the preview hints at useful content."
     )

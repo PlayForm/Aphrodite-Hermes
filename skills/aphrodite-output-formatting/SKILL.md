@@ -1,7 +1,7 @@
 ---
 name: aphrodite-output-formatting
 description:
-    "LLM-native formatting rules for all aphrodite output — CCR previews,
+    "LLM-native formatting rules for all aphrodite output - CCR previews,
     catalog, stats, diff, files. No emojis, no decorative separators, compact
     type-tagged format."
 version: 1.0.0
@@ -11,8 +11,8 @@ related_skills: [aphrodite-tool-guide, aphrodite-hook-reference]
 
 # Aphrodite Output Formatting
 
-All aphrodite output consumed by the LLM MUST use **LLM-native format** —
-compact, structured, type-tagged — not human-decorative format with emojis and
+All aphrodite output consumed by the LLM MUST use **LLM-native format** -
+compact, structured, type-tagged - not human-decorative format with emojis and
 fancy separators. The target audience is the LLM deciding whether to retrieve or
 act. Every token counts.
 
@@ -45,13 +45,13 @@ detects the content type, then the formatter produces a compact
 
 **Format rules:**
 
-- `[type:key=val key=val]` bracket notation — consistent with CCR marker style
+- `[type:key=val key=val]` bracket notation - consistent with CCR marker style
 - Type tag first for immediate classification
 - Space-separated key=value pairs
 - Max 120 chars total, pipe-safe (no `|`)
 
 **The absorptive pattern:** new content of the same type automatically gets the
-same treatment — no manual template writing needed. Add new content types by
+same treatment - no manual template writing needed. Add new content types by
 extending `_classify_content()` in `_marker.py`.
 
 ---
@@ -112,8 +112,8 @@ read_file:
 
 | ❌ Don't                                     | ✅ Do                         |
 | -------------------------------------------- | ----------------------------- |
-| `📦` `💋` `📜` `📁` `🔨` `💥` `📝` `🔍` `📊` | No emojis — they waste tokens |
-| `·` `—` as separators                        | Space or `\n`                 |
+| `📦` `💋` `📜` `📁` `🔨` `💥` `📝` `🔍` `📊` | No emojis - they waste tokens |
+| `·` `-` as separators                        | Space or `\n`                 |
 | `✅` `❌` for status                         | `on` / `off`                  |
 | `**bold**` for decoration                    | Plain text labels             |
 | `•` bullet points                            | Indentation or `-`            |
@@ -123,10 +123,10 @@ read_file:
 
 ## Implementation Files
 
-- **Classifier:** `plugins/aphrodite/_marker.py` → `_classify_content()` —
+- **Classifier:** `plugins/aphrodite/_marker.py` → `_classify_content()` -
   detects 10+ content types
 - **Preview formatter:** `plugins/aphrodite/_marker.py` → `_make_ccr_preview()`
-  — generates `[type:...]`
+  - generates `[type:...]`
 - **Output formatter:** `plugins/aphrodite/_hooks.py` →
   `_format_aphrodite_output()` + `_fmt_{catalog,stats,diff,files}()`
 - **Hook wiring:** `plugins/aphrodite/_hooks.py` → `_transform_tool_result()`

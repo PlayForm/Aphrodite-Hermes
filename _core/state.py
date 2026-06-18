@@ -1,4 +1,4 @@
-"""aphrodite — session state: turn counter, caches, conv index, CCR regex."""
+"""aphrodite - session state: turn counter, caches, conv index, CCR regex."""
 import re
 from collections import OrderedDict
 from typing import Any

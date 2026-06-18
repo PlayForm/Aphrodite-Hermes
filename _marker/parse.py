@@ -1,4 +1,4 @@
-"""CCR marker parsing — extract hash/type/size/meta from text."""
+"""CCR marker parsing - extract hash/type/size/meta from text."""
 
 import logging
 

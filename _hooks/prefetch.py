@@ -1,4 +1,4 @@
-"""aphrodite — background file prefetch and prefetch status."""
+"""aphrodite - background file prefetch and prefetch status."""
 
 import json
 import logging
@@ -24,7 +24,7 @@ _prefetch_registry: dict = {}  # {path: {status, eta_s, hash, size, error}}
 
 
 def _prefetch_handler(args=None, **kwargs):
-    """Background file read + compress — returns CCR markers instantly."""
+    """Background file read + compress - returns CCR markers instantly."""
     args = args if isinstance(args, dict) else {}
     paths_raw = args.get("paths", args.get("path", ""))
     if isinstance(paths_raw, str):
@@ -32,7 +32,7 @@ def _prefetch_handler(args=None, **kwargs):
     elif isinstance(paths_raw, list):
         paths = [str(p).strip() for p in paths_raw if str(p).strip()]
     else:
-        return json.dumps({"error": "paths required — string or list of file paths"})
+        return json.dumps({"error": "paths required - string or list of file paths"})
 
     if not paths:
         return json.dumps({"error": "no valid paths provided"})
@@ -108,7 +108,7 @@ def _prefetch_handler(args=None, **kwargs):
 
 PREFETCH_SCHEMA = {
     "name": "aphrodite_prefetch",
-    "description": "Read files in background and compress to CCR. Returns markers instantly — "
+    "description": "Read files in background and compress to CCR. Returns markers instantly - "
     "agent continues while files load. Use aphrodite_retrieve(hash) when content is needed. "
     "Essential for parallelizing large reads.",
     "parameters": {
@@ -126,7 +126,7 @@ PREFETCH_SCHEMA = {
 
 
 def _prefetch_status_handler(args=None, **kwargs):
-    """Return the live prefetch schedule — what's loading, what's ready, ETAs."""
+    """Return the live prefetch schedule - what's loading, what's ready, ETAs."""
     if not _prefetch_registry:
         return "No active prefetches."
 
@@ -147,11 +147,11 @@ def _prefetch_status_handler(args=None, **kwargs):
     for path, r in pending:
         lines.append(
             f"| LOADING | {path[:40]:<40} | {r.get('size', 0):>6}B | "
-            f"{r.get('eta_s', 0):>4.1f}s | —          |"
+            f"{r.get('eta_s', 0):>4.1f}s | -          |"
         )
     for path, r in errors:
         lines.append(
-            f"| ERROR   | {path[:40]:<40} | —       | —      | "
+            f"| ERROR   | {path[:40]:<40} | -       | -      | "
             f"{str(r.get('error', '?'))[:30]:<30} |"
         )
 
@@ -162,7 +162,7 @@ def _prefetch_status_handler(args=None, **kwargs):
 
 PREFETCH_STATUS_SCHEMA = {
     "name": "aphrodite_prefetch_status",
-    "description": "Live prefetch schedule — what's loading, what's ready, ETAs per file. "
+    "description": "Live prefetch schedule - what's loading, what's ready, ETAs per file. "
     "Use to plan retrievals without polling blindly.",
     "parameters": {"type": "object", "properties": {}},
 }

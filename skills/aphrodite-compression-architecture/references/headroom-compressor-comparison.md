@@ -7,15 +7,15 @@ semantic compressors for code reduction and navigability.
 
 | Strategy        | Class                 | Target               | Technique                                                                        | Ratio |
 | --------------- | --------------------- | -------------------- | -------------------------------------------------------------------------------- | ----- |
-| `CODE_AWARE`    | `CodeAwareCompressor` | Source code          | tree-sitter AST — keeps imports/sigs/types, drops bodies to `# ...` placeholders | 5–8×  |
-| `SMART_CRUSHER` | —                     | JSON arrays          | Structural dedup of repeated array elements                                      | —     |
-| `SEARCH`        | `SearchCompressor`    | grep/ripgrep results | Dedup + summarize match lines                                                    | —     |
-| `LOG`           | `LogCompressor`       | Build/test output    | Extract errors/warnings, drop compilation noise                                  | —     |
+| `CODE_AWARE`    | `CodeAwareCompressor` | Source code          | tree-sitter AST - keeps imports/sigs/types, drops bodies to `# ...` placeholders | 5–8×  |
+| `SMART_CRUSHER` | -                     | JSON arrays          | Structural dedup of repeated array elements                                      | -     |
+| `SEARCH`        | `SearchCompressor`    | grep/ripgrep results | Dedup + summarize match lines                                                    | -     |
+| `LOG`           | `LogCompressor`       | Build/test output    | Extract errors/warnings, drop compilation noise                                  | -     |
 | `KOMPRESS`      | `KompressCompressor`  | Free text            | ML-based semantic compression (nn.Module)                                        | 3–5×  |
-| `DIFF`          | `DiffCompressor`      | Git diffs            | File-level summary, drop hunks                                                   | —     |
-| `HTML`          | —                     | Web content          | Tag-aware structural compression                                                 | —     |
-| `MIXED`         | `ContentRouter`       | Chat/tool output     | Split → route per section → reassemble                                           | —     |
-| `PASSTHROUGH`   | —                     | Below threshold      | No-op identity                                                                   | 1×    |
+| `DIFF`          | `DiffCompressor`      | Git diffs            | File-level summary, drop hunks                                                   | -     |
+| `HTML`          | -                     | Web content          | Tag-aware structural compression                                                 | -     |
+| `MIXED`         | `ContentRouter`       | Chat/tool output     | Split → route per section → reassemble                                           | -     |
+| `PASSTHROUGH`   | -                     | Below threshold      | No-op identity                                                                   | 1×    |
 
 Routing via `ContentRouter` (`headroom/transforms/content_router.py`, 2976
 lines):
@@ -64,7 +64,7 @@ fn process(items: &[String]) -> Vec<String> {
     results
 }
 
-// After (2 lines) — LLM still sees the contract
+// After (2 lines) - LLM still sees the contract
 fn process(items: &[String]) -> Vec<String> {
     // ... (body compressed: 8 lines → placeholder)
 }
@@ -72,7 +72,7 @@ fn process(items: &[String]) -> Vec<String> {
 
 ### Navigability (structure maps)
 
-Current CCR previews: `[code:fn process... 30L]` — opaque. LLM must retrieve
+Current CCR previews: `[code:fn process... 30L]` - opaque. LLM must retrieve
 full blob to know contents. Better: extract function/struct/impl list as preview
 so LLM can browse without retrieving:
 
@@ -83,7 +83,7 @@ so LLM can browse without retrieving:
   fn smart_marker(hash, content, ct, center) -> String
 ```
 
-No tree-sitter needed — just regex for `fn`, `struct`, `impl`, `class`, `def`
+No tree-sitter needed - just regex for `fn`, `struct`, `impl`, `class`, `def`
 patterns. LLM sees the index and retrieves only what it needs.
 
 ### Split+Route for Mixed Content
@@ -95,13 +95,13 @@ monolithic blob.
 
 ## Key Source Files
 
-- `vendor/headroom/headroom/transforms/content_router.py` — router + 9
+- `vendor/headroom/headroom/transforms/content_router.py` - router + 9
   strategies (2976 lines)
-- `vendor/headroom/headroom/transforms/code_compressor.py` —
+- `vendor/headroom/headroom/transforms/code_compressor.py` -
   `CodeAwareCompressor` (2036 lines)
-- `vendor/headroom/headroom/transforms/search_compressor.py` —
+- `vendor/headroom/headroom/transforms/search_compressor.py` -
   `SearchCompressor`
-- `vendor/headroom/headroom/transforms/log_compressor.py` — `LogCompressor`
-- `vendor/headroom/headroom/transforms/diff_compressor.py` — `DiffCompressor`
-- `vendor/headroom/headroom/transforms/kompress_compressor.py` —
+- `vendor/headroom/headroom/transforms/log_compressor.py` - `LogCompressor`
+- `vendor/headroom/headroom/transforms/diff_compressor.py` - `DiffCompressor`
+- `vendor/headroom/headroom/transforms/kompress_compressor.py` -
   `KompressCompressor` (ML-based)

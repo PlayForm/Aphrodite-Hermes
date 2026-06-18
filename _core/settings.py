@@ -1,4 +1,4 @@
-"""aphrodite — in-memory settings store (API-driven, survives reloads).
+"""aphrodite - in-memory settings store (API-driven, survives reloads).
 
 All compression/preview/prompt knobs live here. Any part of the plugin reads
 from this store; the proxy and API can update entries at runtime via a shared

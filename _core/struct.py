@@ -1,4 +1,4 @@
-"""aphrodite — code structure extractor with regex-based patterns per language."""
+"""aphrodite - code structure extractor with regex-based patterns per language."""
 
 import re as _re
 

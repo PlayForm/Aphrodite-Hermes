@@ -23,21 +23,21 @@ python3 scripts/benchmark.py && echo "---PIPELINE---"
 
 ## Step 1: HTTP Benchmark (`scripts/benchmark.py`)
 
-Direct HTTP calls against `:9798`. No Hermes plugin needed — just the proxy
+Direct HTTP calls against `:9798`. No Hermes plugin needed - just the proxy
 binary.
 
 **Phases:**
 
-1. **Proxy health + stats** — latency, mode, request/compression counts
-2. **Compression across sizes × types** — 5 sizes (1KB, 10KB, 50KB, 100KB,
+1. **Proxy health + stats** - latency, mode, request/compression counts
+2. **Compression across sizes × types** - 5 sizes (1KB, 10KB, 50KB, 100KB,
    500KB) × 3 types (text, code, json) = 15 variants, 3–5 iterations each
-3. **Retrieve** — 10 random hashes from phase 2
-4. **Catalog** — entry count
+3. **Retrieve** - 10 random hashes from phase 2
+4. **Catalog** - entry count
 
 **Output:**
 
-- `benchmark-<ts>.json` — full run data with per-test latencies, ratios
-- `benchmark-history.jsonl` — cumulative run history for trend comparison
+- `benchmark-<ts>.json` - full run data with per-test latencies, ratios
+- `benchmark-history.jsonl` - cumulative run history for trend comparison
 - Prints Δ vs previous run (compress latency, retrieve latency)
 
 **Metrics collected:**
@@ -81,20 +81,20 @@ end-to-end.
 
 **Tests (9):**
 
-- `compress_json`, `compress_code`, `compress_cache_hit` — compression + dedup
-- `retrieve_roundtrip` — compress → retrieve → verify
-- `stats` — proxy/cache health metrics
-- `files_empty`, `diff_empty` — tool output format
-- `proxy_health`, `proxy_metrics` — endpoint verification
+- `compress_json`, `compress_code`, `compress_cache_hit` - compression + dedup
+- `retrieve_roundtrip` - compress → retrieve → verify
+- `stats` - proxy/cache health metrics
+- `files_empty`, `diff_empty` - tool output format
+- `proxy_health`, `proxy_metrics` - endpoint verification
 
 **Feature toggles (4):**
 
-- `debug_on` / `debug_off` — APHRODITE_DEBUG env
-- `engine_on` / `engine_off` — APHRODITE_CONTEXT_ENGINE env
+- `debug_on` / `debug_off` - APHRODITE_DEBUG env
+- `engine_on` / `engine_off` - APHRODITE_CONTEXT_ENGINE env
 
 **Output:**
 
-- `.hermes/aphrodite/.test-results.json` — full results with regression delta
+- `.hermes/aphrodite/.test-results.json` - full results with regression delta
 - Regression status: OK (no degradation) or DEGRADED (fewer passes than
   previous)
 

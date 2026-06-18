@@ -1,4 +1,4 @@
-"""Content classification — detect type from raw content string."""
+"""Content classification - detect type from raw content string."""
 
 import json
 import logging

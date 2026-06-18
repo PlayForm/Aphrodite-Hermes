@@ -1,4 +1,4 @@
-"""aphrodite — compression catalog handler and table-of-contents builder."""
+"""aphrodite - compression catalog handler and table-of-contents builder."""
 
 import json
 import logging
@@ -107,7 +107,7 @@ def _build_toc() -> str:
         if t in ("build_output", "build_error") and "0e" in p.lower() and "0w" in p.lower() or t == "terminal" and "exit=0" in p or t in ("grep", "search_files", "search_results") and ("0 matches" in p or "0m" in p) or t not in ("build_output", "build_error", "terminal") and "0E 0W" in p:
             retrieve = "NO"
         lines.append(f"| {h:<7} | {t:<14} | {s:>5} | {p:<45} | {retrieve:<9} |")
-    lines.extend(["", "Retrieve? = NO means the preview is sufficient — skip retrieval."])
+    lines.extend(["", "Retrieve? = NO means the preview is sufficient - skip retrieval."])
     return "\n".join(lines)
 
 

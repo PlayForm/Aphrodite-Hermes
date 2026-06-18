@@ -1,4 +1,4 @@
-"""aphrodite — statistics handler."""
+"""aphrodite - statistics handler."""
 
 import json
 import logging
