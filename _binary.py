@@ -66,7 +66,7 @@ def _download_binary() -> bool:
         with contextlib.suppress(Exception):
             os.replace(BINARY, bak)
     plat = _detect_platform()
-    download_url = f"https://github.com/{REPO}/releases/download/{BIN_VERSION}/aphrodite-{plat}"
+    download_url = f"https://github.com/{REPO}/releases/download/Aphrodite/{BIN_VERSION}/aphrodite-{plat}"
     if platform.system().lower() == "windows":
         download_url += ".exe"
     _log.info("downloading aphrodite %s from %s", BIN_VERSION, download_url)
