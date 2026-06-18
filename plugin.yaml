@@ -1,5 +1,5 @@
 name: aphrodite
-version: 1.62.43
+version: 1.62.44
 description:
     "CCR compression plugin - 28-type classifier, 13 tools, context engine,
     TOML-driven templates."
