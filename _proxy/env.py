@@ -7,7 +7,17 @@ from .._core import ENV_FILE
 _log = logging.getLogger("aphrodite")
 
 # ── Proxy environment keys (whitelist) ──────────────────────
-_PROXY_ENV_KEYS = {"PATH", "HOME", "APHRODITE_API_KEY", "DYLD_LIBRARY_PATH", "DYLD_FALLBACK_LIBRARY_PATH", "SSL_CERT_FILE", "TMPDIR", "TMP", "TEMP"}
+_PROXY_ENV_KEYS = {
+    "PATH",
+    "HOME",
+    "APHRODITE_API_KEY",
+    "DYLD_LIBRARY_PATH",
+    "DYLD_FALLBACK_LIBRARY_PATH",
+    "SSL_CERT_FILE",
+    "TMPDIR",
+    "TMP",
+    "TEMP",
+}
 
 # ── Auto-expand guidance (set by on_start after proxy launch) ──
 _expand_guidance: str = ""
@@ -55,8 +65,7 @@ def _env_val(val: str, key_name: str = "") -> str:
         # If the suffix looks like a credential fragment (≥4 hex-like chars) warn
         if key_name and after_stripped and len(after_stripped) >= 4:
             _log.warning(
-                "_env_val: %s contains '#' followed by '%s...' - "
-                "possible key truncation, consider quoting the value",
+                "_env_val: %s contains '#' followed by '%s...' - possible key truncation, consider quoting the value",
                 key_name,
                 after_stripped[:3],
             )

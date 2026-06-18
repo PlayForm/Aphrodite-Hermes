@@ -2,6 +2,7 @@
 Aphrodite plugin test suite.
 Run from monorepo root: python -m pytest plugins/aphrodite/tests/test_core.py -v
 """
+
 import hashlib
 from plugins.aphrodite._core import config as core_config
 from plugins.aphrodite._core import store

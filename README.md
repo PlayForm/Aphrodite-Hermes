@@ -16,10 +16,11 @@ needs it.
 
 ## Install ⚡
 
-> **You install THIS repo** — the standalone `Aphrodite-Hermes` plugin.
-> Do NOT clone the monorepo ([PlayForm/Aphrodite](https://github.com/PlayForm/Aphrodite)).
-> The monorepo contains the full Rust proxy source, docs, benchmarks, and builds.
-> This repo is `./plugins/aphrodite/` — the plugin that ships to users.
+> **You install THIS repo** — the standalone `Aphrodite-Hermes` plugin. Do NOT
+> clone the monorepo
+> ([PlayForm/Aphrodite](https://github.com/PlayForm/Aphrodite)). The monorepo
+> contains the full Rust proxy source, docs, benchmarks, and builds. This repo
+> is `./plugins/aphrodite/` — the plugin that ships to users.
 
 ```bash
 # 1. Clone the standalone plugin repo
@@ -29,7 +30,7 @@ git clone https://github.com/PlayForm/Aphrodite-Hermes.git
 ln -s "$(pwd)/Aphrodite-Hermes" ~/.hermes/plugins/aphrodite
 
 # Or for a named profile:
-ln -s "$(pwd)/Aphrodite-Hermes" ~/.hermes/profiles/<name>/plugins/aphrodite
+ln -s "$(pwd)/Aphrodite-Hermes" ~/.hermes/profiles/ < name > /plugins/aphrodite
 
 # 3. Enable and restart
 hermes plugins enable aphrodite
@@ -71,17 +72,18 @@ Aphrodite/                  ← monorepo (NOT what you install)
 
 This standalone repo is a **git submodule** inside the
 [PlayForm/Aphrodite](https://github.com/PlayForm/Aphrodite) monorepo at
-`./plugins/aphrodite/`. Changes you push here are pulled into the monorepo
-via `git submodule update --remote`. The monorepo tracks a specific commit
-pointer — whenever you push here, the monorepo must update its submodule
-ref to point at your new commit.
+`./plugins/aphrodite/`. Changes you push here are pulled into the monorepo via
+`git submodule update --remote`. The monorepo tracks a specific commit pointer —
+whenever you push here, the monorepo must update its submodule ref to point at
+your new commit.
 
 ---
 
 ## Configuration 🔧
 
-Copy `aphrodite.toml.example` from the monorepo to `~/.hermes/aphrodite/aphrodite.toml`
-(or rely on the defaults — it works out of the box with `APHRODITE_API_KEY`).
+Copy `aphrodite.toml.example` from the monorepo to
+`~/.hermes/aphrodite/aphrodite.toml` (or rely on the defaults — it works out of
+the box with `APHRODITE_API_KEY`).
 
 ```toml
 [defaults]
@@ -108,28 +110,30 @@ context_engine = true
 
 ## Tools 🛠️
 
-| Tool | Description |
-| :--- | :--- |
-| `aphrodite_retrieve` | Resolve `<<<CCR:hash\|type>>>` markers |
-| `aphrodite_compress` | Compress content via CCR with type hint |
-| `aphrodite_stats` | Proxy health, engine status, inline store |
-| `aphrodite_rebuild` | Rebuild binary + restart proxies |
-| `aphrodite_files` | Tracked file references grouped by tool |
-| `aphrodite_diff` | Conversation turn history with summaries |
-| `aphrodite_search` | Search CCR store by keyword or type |
-| `aphrodite_test` | Smoke test suite (quick / full / pipeline) |
-| `aphrodite_catalog` | Full CCR catalog with hashes, types, sizes |
-| `aphrodite_reclassify` | Retroactive metadata enrichment |
-| `aphrodite_prefetch` | Background file read — markers instantly |
-| `aphrodite_prefetch_status` | Prefetch queue status |
+| Tool                        | Description                                |
+| :-------------------------- | :----------------------------------------- |
+| `aphrodite_retrieve`        | Resolve `<<<CCR:hash\|type>>>` markers     |
+| `aphrodite_compress`        | Compress content via CCR with type hint    |
+| `aphrodite_stats`           | Proxy health, engine status, inline store  |
+| `aphrodite_rebuild`         | Rebuild binary + restart proxies           |
+| `aphrodite_files`           | Tracked file references grouped by tool    |
+| `aphrodite_diff`            | Conversation turn history with summaries   |
+| `aphrodite_search`          | Search CCR store by keyword or type        |
+| `aphrodite_test`            | Smoke test suite (quick / full / pipeline) |
+| `aphrodite_catalog`         | Full CCR catalog with hashes, types, sizes |
+| `aphrodite_reclassify`      | Retroactive metadata enrichment            |
+| `aphrodite_prefetch`        | Background file read — markers instantly   |
+| `aphrodite_prefetch_status` | Prefetch queue status                      |
 
 ---
 
 ## More 🔗
 
-- **[Monorepo](https://github.com/PlayForm/Aphrodite)** — full docs, benchmarks, Rust source
-- **[Hermes Agent](https://github.com/NousResearch/hermes-agent)** — the agent framework
+- **[Monorepo](https://github.com/PlayForm/Aphrodite)** — full docs, benchmarks,
+  Rust source
+- **[Hermes Agent](https://github.com/NousResearch/hermes-agent)** — the agent
+  framework
 
 ---
 
-*CC0‑1.0 — public domain. A PlayForm project.*
+_CC0‑1.0 — public domain. A PlayForm project._

@@ -21,8 +21,12 @@ def _classifier_says_skip(klass: dict) -> bool:
     if not CLASSIFIER_POLL:
         return False
     ctype = klass.get("type", "")
-    if ctype in ("build_output", "build_error") and klass.get("errors", "0") in ("0", "") and klass.get("warnings", "0") in ("0", ""):
-            return True
+    if (
+        ctype in ("build_output", "build_error")
+        and klass.get("errors", "0") in ("0", "")
+        and klass.get("warnings", "0") in ("0", "")
+    ):
+        return True
     if ctype == "terminal" and klass.get("exit") == "0":
         return True
     return bool(ctype in ("search_files", "search_results") and klass.get("total", "0") in ("0", ""))

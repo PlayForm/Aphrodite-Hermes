@@ -15,9 +15,7 @@ import threading
 _log = logging.getLogger("aphrodite.settings")
 
 # ── Shared file path ────────────────────────────────────────────
-_RUNTIME_FILE = os.path.join(
-    os.path.expanduser("~"), ".hermes", "aphrodite", "runtime-settings.json"
-)
+_RUNTIME_FILE = os.path.join(os.path.expanduser("~"), ".hermes", "aphrodite", "runtime-settings.json")
 
 # ── In-memory store ─────────────────────────────────────────────
 _store: dict = {}
@@ -44,6 +42,7 @@ def _save_runtime_file(data: dict) -> None:
 
 
 # ── Public API ──────────────────────────────────────────────────
+
 
 def get(key: str, default=None):
     """Get a single setting from the in-memory store."""
@@ -88,10 +87,19 @@ def reload_from_toml(config: dict) -> None:
     toml_defaults: dict = {}
     # Compression
     for key in (
-        "engine_threshold_pct", "engine_protect_first", "engine_protect_last",
-        "engine_min_msgs", "tool_threshold_token", "tool_threshold_cache",
-        "terminal_threshold", "inline_threshold", "auto_expand_limit",
-        "catalog_mode", "classifier_poll", "code_multiplier", "context_engine",
+        "engine_threshold_pct",
+        "engine_protect_first",
+        "engine_protect_last",
+        "engine_min_msgs",
+        "tool_threshold_token",
+        "tool_threshold_cache",
+        "terminal_threshold",
+        "inline_threshold",
+        "auto_expand_limit",
+        "catalog_mode",
+        "classifier_poll",
+        "code_multiplier",
+        "context_engine",
         "auto_expand",
     ):
         if key in comp:
@@ -113,7 +121,8 @@ def reload_from_toml(config: dict) -> None:
 
     _log.debug(
         "settings: loaded %d TOML defaults + %d runtime overrides",
-        len(toml_defaults), len(runtime),
+        len(toml_defaults),
+        len(runtime),
     )
 
 

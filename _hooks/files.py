@@ -53,11 +53,13 @@ def _files_handler(args=None, **kwargs):
     by_tool = {}
     for path, tool in sorted(_referenced_files.items()):
         by_tool.setdefault(tool, []).append(path)
-    return json.dumps({
-        "count": len(_referenced_files),
-        "by_tool": {t: sorted(paths) for t, paths in sorted(by_tool.items())},
-        "all": sorted(_referenced_files.keys()),
-    })
+    return json.dumps(
+        {
+            "count": len(_referenced_files),
+            "by_tool": {t: sorted(paths) for t, paths in sorted(by_tool.items())},
+            "all": sorted(_referenced_files.keys()),
+        }
+    )
 
 
 FILES_SCHEMA = {

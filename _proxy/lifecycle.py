@@ -86,9 +86,7 @@ def _start(name: str, env: dict[str, str]) -> None:
     # ── Launch ──────────────────────────────────────────────
     key = os.environ.get("APHRODITE_API_KEY", env.get("APHRODITE_API_KEY", ""))
     if not key:
-        raise ValueError(
-            "APHRODITE_API_KEY not set in env or .env - proxy can't authenticate"
-        )
+        raise ValueError("APHRODITE_API_KEY not set in env or .env - proxy can't authenticate")
     env["APHRODITE_API_KEY"] = key
     mode_flag = "cache" if name == "cache" else "token"
     args = [BINARY, "--listen", f"127.0.0.1:{port}", "--mode", mode_flag, "--tool-relay"]
@@ -196,13 +194,17 @@ def on_start(**kw) -> str | None:
                     continue
                 _log.info(
                     "proxy %s version mismatch (running=%s, expected=%s) - restarting",
-                    name, running_ver or "?", BIN_VERSION,
+                    name,
+                    running_ver or "?",
+                    BIN_VERSION,
                 )
                 # Kill stale proxy
                 try:
                     r = subprocess.run(
                         ["lsof", "-ti", f":{port}"],
-                        capture_output=True, text=True, timeout=5,
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
                     )
                     if r.stdout.strip():
                         for pid in r.stdout.strip().split("\n"):
@@ -246,4 +248,6 @@ def on_start(**kw) -> str | None:
     # Startup observability log
     _write_startup_log(cache_ok, token_ok, auto_summary)
 
-    return f"💋 aphrodite v{PLUGIN_VERSION}  -  cache={'UP' if cache_ok else 'DOWN'} token={'UP' if token_ok else 'DOWN'}"
+    return (
+        f"💋 aphrodite v{PLUGIN_VERSION}  -  cache={'UP' if cache_ok else 'DOWN'} token={'UP' if token_ok else 'DOWN'}"
+    )

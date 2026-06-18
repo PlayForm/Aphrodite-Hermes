@@ -76,17 +76,20 @@ def _download_rebuild():
     restarted = _restart_proxies()
 
     from .._proxy.health import _query_proxy_version
+
     proxy_ver = _query_proxy_version(PORTS["token"]) or "?"
 
-    return json.dumps({
-        "ok": True,
-        "size": os.path.getsize(BINARY),
-        "path": BINARY,
-        "killed": killed,
-        "restarted": restarted,
-        "proxy_version": proxy_ver,
-        "method": "download",
-    })
+    return json.dumps(
+        {
+            "ok": True,
+            "size": os.path.getsize(BINARY),
+            "path": BINARY,
+            "killed": killed,
+            "restarted": restarted,
+            "proxy_version": proxy_ver,
+            "method": "download",
+        }
+    )
 
 
 def _kill_proxies():
@@ -114,6 +117,7 @@ def _restart_proxies():
     _time.sleep(0.3)
     restarted = []
     from .._proxy.lifecycle import _start as _proxy_start
+
     for name in ("cache", "token"):
         try:
             _proxy_start(name, os.environ.copy())
@@ -135,14 +139,17 @@ def _install_and_restart(src):
 
     _time.sleep(0.3)
     from .._proxy.health import _query_proxy_version
+
     proxy_ver = _query_proxy_version(PORTS["token"]) or "?"
 
-    return json.dumps({
-        "ok": True,
-        "size": os.path.getsize(BINARY),
-        "path": BINARY,
-        "killed": killed,
-        "restarted": restarted,
-        "proxy_version": proxy_ver,
-        "method": "cargo",
-    })
+    return json.dumps(
+        {
+            "ok": True,
+            "size": os.path.getsize(BINARY),
+            "path": BINARY,
+            "killed": killed,
+            "restarted": restarted,
+            "proxy_version": proxy_ver,
+            "method": "cargo",
+        }
+    )

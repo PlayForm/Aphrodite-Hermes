@@ -40,12 +40,22 @@ def _test_handler(args=None, **kwargs):
             report["tests"].append({"name": name, "status": "FAIL", "error": str(e)})
 
     test("compress_json", lambda: json.loads(_compress_handler(args={"content": '{"a":1,"b":[2,3]}', "type": "json"})))
-    test("compress_code", lambda: json.loads(_compress_handler(args={"content": "def foo():\n    return 42\n", "type": "code"})))
+    test(
+        "compress_code",
+        lambda: json.loads(_compress_handler(args={"content": "def foo():\n    return 42\n", "type": "code"})),
+    )
     test("compress_cache_hit", lambda: _compress_handler(args={"content": '{"a":1,"b":[2,3]}', "type": "json"}))
-    test("retrieve_roundtrip", lambda: (
-        (h := json.loads(_compress_handler(args={"content": "def foo():\n    return 42\n", "type": "code"}))["hash"])
-        and "def foo" in _retrieve_handler(args={"hash": h})
-    ))
+    test(
+        "retrieve_roundtrip",
+        lambda: (
+            (
+                h := json.loads(_compress_handler(args={"content": "def foo():\n    return 42\n", "type": "code"}))[
+                    "hash"
+                ]
+            )
+            and "def foo" in _retrieve_handler(args={"hash": h})
+        ),
+    )
     test("stats", lambda: json.loads(_stats_handler())["proxy"])
     test("files_empty", lambda: json.loads(_files_handler())["count"] == 0)
     test("diff_empty", lambda: json.loads(_diff_handler())["turns"] == 0)
@@ -53,8 +63,13 @@ def _test_handler(args=None, **kwargs):
     test("proxy_metrics", lambda: _alive(9797))
 
     if mode in ("full", "matrix"):
-        big_payload = json.dumps({"data": list(range(1000)), "nested": {"deep": {"values": [i * i for i in range(200)]}}})
-        test("compress_large", lambda: json.loads(_compress_handler(args={"content": big_payload, "type": "json"}))["size"] > 1000)
+        big_payload = json.dumps(
+            {"data": list(range(1000)), "nested": {"deep": {"values": [i * i for i in range(200)]}}}
+        )
+        test(
+            "compress_large",
+            lambda: json.loads(_compress_handler(args={"content": big_payload, "type": "json"}))["size"] > 1000,
+        )
         test("search_find", lambda: json.loads(_search_handler(args={"query": "deep"}))["matches"] >= 1)
         test("terminal_threshold", lambda: TERMINAL_THRESHOLD > 0)
         test("inline_threshold", lambda: INLINE_THRESHOLD > 0)
@@ -64,8 +79,12 @@ def _test_handler(args=None, **kwargs):
         for pct in (0, 25, 50, 75, 100):
             for protect in (2, 5, 10):
                 key = f"pct={pct}_protect={protect}"
-                settings["results"][key] = {"threshold_pct": pct, "protect_last": protect,
-                                            "compresses_always": pct == 0, "compresses_never": pct >= 100}
+                settings["results"][key] = {
+                    "threshold_pct": pct,
+                    "protect_last": protect,
+                    "compresses_always": pct == 0,
+                    "compresses_never": pct >= 100,
+                }
         report["settings_matrix"] = settings
 
     if mode == "pipeline":
@@ -86,8 +105,10 @@ def _test_handler(args=None, **kwargs):
                     "proxy_alive": _alive(9798),
                     "cache_alive": _alive(9797),
                     "thresholds": {
-                        "terminal": TERMINAL_THRESHOLD, "inline": INLINE_THRESHOLD,
-                        "tool_token": TOOL_THRESHOLD_TOKEN, "tool_cache": TOOL_THRESHOLD_CACHE,
+                        "terminal": TERMINAL_THRESHOLD,
+                        "inline": INLINE_THRESHOLD,
+                        "tool_token": TOOL_THRESHOLD_TOKEN,
+                        "tool_cache": TOOL_THRESHOLD_CACHE,
                     },
                     "engine_threshold": ENGINE_THRESHOLD_PCT,
                 }

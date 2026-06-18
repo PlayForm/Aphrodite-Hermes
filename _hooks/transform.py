@@ -34,12 +34,20 @@ from .stats import _fmt_stats
 
 _log = logging.getLogger("aphrodite.hooks.transform")
 
-_ESSENTIAL_TOOLS: frozenset = frozenset({
-    "aphrodite_catalog", "aphrodite_compress", "aphrodite_diff",
-    "aphrodite_files", "aphrodite_rebuild", "aphrodite_reclassify",
-    "aphrodite_retrieve", "aphrodite_search", "aphrodite_stats",
-    "aphrodite_test",
-})
+_ESSENTIAL_TOOLS: frozenset = frozenset(
+    {
+        "aphrodite_catalog",
+        "aphrodite_compress",
+        "aphrodite_diff",
+        "aphrodite_files",
+        "aphrodite_rebuild",
+        "aphrodite_reclassify",
+        "aphrodite_retrieve",
+        "aphrodite_search",
+        "aphrodite_stats",
+        "aphrodite_test",
+    }
+)
 
 
 def _format_aphrodite_output(tool_name: str, result: str) -> str:
@@ -156,15 +164,30 @@ def _transform_tool_result(tool_name="", args=None, result="", **kwargs):
     result_len = len(result)
     if result_len > MAX_REQUEST_BODY_SIZE:
         if DEBUG_LOGGING:
-            _log.debug("transform_tool_result: SKIP %s size=%s > MAX_REQUEST_BODY_SIZE=%s", tool_name[:40], result_len, MAX_REQUEST_BODY_SIZE)
+            _log.debug(
+                "transform_tool_result: SKIP %s size=%s > MAX_REQUEST_BODY_SIZE=%s",
+                tool_name[:40],
+                result_len,
+                MAX_REQUEST_BODY_SIZE,
+            )
         return result
     if result_len < threshold:
         if DEBUG_LOGGING:
-            _log.debug("transform_tool_result: BELOW %s size=%s < threshold=%s %.1fms", tool_name[:40], result_len, threshold, (time.time() - _t0) * 1000)
+            _log.debug(
+                "transform_tool_result: BELOW %s size=%s < threshold=%s %.1fms",
+                tool_name[:40],
+                result_len,
+                threshold,
+                (time.time() - _t0) * 1000,
+            )
         return result
     if _CCR_RE.search(result):
         if DEBUG_LOGGING:
-            _log.debug("transform_tool_result: GUARD %s has existing CCR marker %.1fms", tool_name[:40], (time.time() - _t0) * 1000)
+            _log.debug(
+                "transform_tool_result: GUARD %s has existing CCR marker %.1fms",
+                tool_name[:40],
+                (time.time() - _t0) * 1000,
+            )
         return result
     klass = _classify_content(result)
     if _classifier_says_skip(klass):
@@ -183,11 +206,36 @@ def _transform_tool_result(tool_name="", args=None, result="", **kwargs):
             full_sha = hashlib.sha256(result.encode("utf-8")).hexdigest()
             _hash_alias[full_sha] = h
             label = "token" if token_alive else "cache"
-            _recent_markers.append({"hash": h, "type": marker_type, "size": result_len, "preview": preview, "turn": _state["turn_counter"], "meta": metadata or {}})
+            _recent_markers.append(
+                {
+                    "hash": h,
+                    "type": marker_type,
+                    "size": result_len,
+                    "preview": preview,
+                    "turn": _state["turn_counter"],
+                    "meta": metadata or {},
+                }
+            )
             _inline_store_put(h, result)
             if DEBUG_LOGGING:
-                _log.debug("transform_tool_result: CCR %s %s:%s size=%s ratio=%.1fx %.1fms", tool_name[:40], label, h, result_len, result_len / max(len(h), 1), (time.time() - _t0) * 1000)
-            return _ccr_marker(h, marker_type, result_len, label, preview, headroom_budget=_headroom_context.get("x-headroom-budget"), meta=metadata)
+                _log.debug(
+                    "transform_tool_result: CCR %s %s:%s size=%s ratio=%.1fx %.1fms",
+                    tool_name[:40],
+                    label,
+                    h,
+                    result_len,
+                    result_len / max(len(h), 1),
+                    (time.time() - _t0) * 1000,
+                )
+            return _ccr_marker(
+                h,
+                marker_type,
+                result_len,
+                label,
+                preview,
+                headroom_budget=_headroom_context.get("x-headroom-budget"),
+                meta=metadata,
+            )
         elif DEBUG_LOGGING:
             _log.debug("transform_tool_result: PROXY FAIL %s - proxy returned no hash", tool_name[:40])
     if result_len >= INLINE_THRESHOLD:
@@ -195,13 +243,41 @@ def _transform_tool_result(tool_name="", args=None, result="", **kwargs):
             h, _ = _inline_compress(result)
             full_sha = hashlib.sha256(result.encode("utf-8")).hexdigest()
             _hash_alias[full_sha] = h
-            _recent_markers.append({"hash": h, "type": marker_type, "size": result_len, "preview": preview, "turn": _state["turn_counter"], "meta": metadata or {}})
+            _recent_markers.append(
+                {
+                    "hash": h,
+                    "type": marker_type,
+                    "size": result_len,
+                    "preview": preview,
+                    "turn": _state["turn_counter"],
+                    "meta": metadata or {},
+                }
+            )
             if DEBUG_LOGGING:
-                _log.debug("transform_tool_result: INLINE %s hash=%s size=%s %.1fms", tool_name[:40], h, result_len, (time.time() - _t0) * 1000)
-            return _ccr_marker(h, marker_type, result_len, "inline", preview, headroom_budget=_headroom_context.get("x-headroom-budget"), meta=metadata)
+                _log.debug(
+                    "transform_tool_result: INLINE %s hash=%s size=%s %.1fms",
+                    tool_name[:40],
+                    h,
+                    result_len,
+                    (time.time() - _t0) * 1000,
+                )
+            return _ccr_marker(
+                h,
+                marker_type,
+                result_len,
+                "inline",
+                preview,
+                headroom_budget=_headroom_context.get("x-headroom-budget"),
+                meta=metadata,
+            )
         except Exception:
             if DEBUG_LOGGING:
                 _log.debug("transform_tool_result: INLINE FAIL %s", tool_name[:40])
     if DEBUG_LOGGING:
-        _log.debug("transform_tool_result: PASSTHROUGH %s size=%s %.1fms", tool_name[:40], result_len, (time.time() - _t0) * 1000)
+        _log.debug(
+            "transform_tool_result: PASSTHROUGH %s size=%s %.1fms",
+            tool_name[:40],
+            result_len,
+            (time.time() - _t0) * 1000,
+        )
     return result

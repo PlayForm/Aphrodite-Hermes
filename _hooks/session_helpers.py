@@ -29,15 +29,30 @@ def _extract_preview(marker, conversation_history):
         c = msg.get("content", "")
         if isinstance(c, str) and h in c:
             idx = c.find(h)
-            after = c[idx + len(h):].strip()
+            after = c[idx + len(h) :].strip()
             if ">>>" in after:
                 after = after.split(">>>", 1)[-1].strip()
             return after[:80].strip()
     return ""
 
 
-_READ_KEYWORDS: frozenset = frozenset({
-    "read", "show", "view", "get", "cat", "display", "retrieve",
-    "fetch", "look", "see", "open", "inspect", "check", "print",
-    "dump", "output",
-})
+_READ_KEYWORDS: frozenset = frozenset(
+    {
+        "read",
+        "show",
+        "view",
+        "get",
+        "cat",
+        "display",
+        "retrieve",
+        "fetch",
+        "look",
+        "see",
+        "open",
+        "inspect",
+        "check",
+        "print",
+        "dump",
+        "output",
+    }
+)

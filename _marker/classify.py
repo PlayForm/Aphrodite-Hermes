@@ -25,8 +25,10 @@ def _classify_content(content: str) -> dict:
         trimmed = content[:5000]
 
         # ── diff content ─────────────────────────────────────
-        if trimmed.startswith("diff --git") or trimmed.startswith("---") or any(
-            line.startswith("diff --git") for line in lines[:5]
+        if (
+            trimmed.startswith("diff --git")
+            or trimmed.startswith("---")
+            or any(line.startswith("diff --git") for line in lines[:5])
         ):
             meta = {"type": "diff", "ln": str(ln)}
             files = set()
@@ -117,7 +119,11 @@ def _classify_content(content: str) -> dict:
                         return meta
                     if "matches" in data:
                         meta = {"type": "search_files"}
-                        meta["files"] = str(len(data["matches"])) if isinstance(data["matches"], (list, tuple)) else str(data["matches"])
+                        meta["files"] = (
+                            str(len(data["matches"]))
+                            if isinstance(data["matches"], (list, tuple))
+                            else str(data["matches"])
+                        )
                         if "query" in data:
                             meta["q"] = str(data["query"])[:40]
                         return meta
@@ -148,7 +154,11 @@ def _classify_content(content: str) -> dict:
                         if "total_elements" in data:
                             meta["total"] = str(data["total_elements"])
                         return meta
-                    if "title" in data and "url" in data or ("results" in data and isinstance(data.get("results"), list)):
+                    if (
+                        "title" in data
+                        and "url" in data
+                        or ("results" in data and isinstance(data.get("results"), list))
+                    ):
                         meta = {"type": "web_search", "ln": str(ln)}
                         results = data.get("results", [data] if "title" in data else [])
                         if isinstance(results, list):
@@ -166,7 +176,9 @@ def _classify_content(content: str) -> dict:
                         todos = data.get("todos", [])
                         if isinstance(todos, list):
                             meta["items"] = str(len(todos))
-                            meta["total"] = str(sum(1 for t in todos if isinstance(t, dict) and t.get("status") != "completed"))
+                            meta["total"] = str(
+                                sum(1 for t in todos if isinstance(t, dict) and t.get("status") != "completed")
+                            )
                         elif "status" in data:
                             meta["items"] = "1"
                         return meta
@@ -242,5 +254,7 @@ def _classify_content(content: str) -> dict:
         return {"type": "text", "ln": str(ln)}
     except Exception:
         if logging.getLogger("aphrodite").isEnabledFor(logging.DEBUG):
-            logging.getLogger("aphrodite").debug("_classify_content: failed for %d-char content", len(content) if isinstance(content, str) else 0)
+            logging.getLogger("aphrodite").debug(
+                "_classify_content: failed for %d-char content", len(content) if isinstance(content, str) else 0
+            )
         return {"type": "text", "ln": str(len(content.splitlines())) if isinstance(content, str) else 0}

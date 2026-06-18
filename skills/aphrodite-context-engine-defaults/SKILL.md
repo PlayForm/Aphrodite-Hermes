@@ -30,8 +30,9 @@ Disable with: `APHRODITE_CONTEXT_ENGINE=0` or TOML `context_engine = false`.
 ## Auto-Expand Is Effectively OFF By Default
 
 `aphrodite.toml:42`: `auto_expand_limit = 5`. This sets `AUTO_EXPAND_LIMIT = 5`
+
 - only markers with original content < 5 bytes get auto-resolved. Nothing real
-meets that threshold.
+  meets that threshold.
 
 **The context engine compresses but auto-expand doesn't resolve** - this is the
 default. The LLM sees raw `<<<CCR:hash|context|N>>>` markers.

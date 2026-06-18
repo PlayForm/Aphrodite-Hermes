@@ -87,7 +87,14 @@ def _compress_handler(args=None, **kwargs):
     canonical = _hash_alias.get(full_h, h)
     if canonical in _inline_store:
         return json.dumps(
-            {"hash": canonical, "type": type_hint, "size": len(content), "source": "cache_hit", "compression_ratio": 1.0, "note": "already in store"}
+            {
+                "hash": canonical,
+                "type": type_hint,
+                "size": len(content),
+                "source": "cache_hit",
+                "compression_ratio": 1.0,
+                "note": "already in store",
+            }
         )
 
     try:
@@ -98,9 +105,7 @@ def _compress_handler(args=None, **kwargs):
             tool_headers.update(_headroom_context)
         if center:
             tool_headers["X-Aphrodite-Center"] = center
-        req = urllib.request.Request(
-            f"http://127.0.0.1:{target}/ccr/create", data=data, headers=tool_headers
-        )
+        req = urllib.request.Request(f"http://127.0.0.1:{target}/ccr/create", data=data, headers=tool_headers)
         with urllib.request.urlopen(req, timeout=5) as r:
             result = json.loads(r.read())
         h = result.get("hash", h)
@@ -144,7 +149,10 @@ RETRIEVE_SCHEMA = {
     "parameters": {
         "type": "object",
         "properties": {
-            "hash": {"type": "string", "description": "CCR marker hash to retrieve. Extract from <<<CCR:hash|type|size>>> markers - the hash is the first pipe-delimited segment."},
+            "hash": {
+                "type": "string",
+                "description": "CCR marker hash to retrieve. Extract from <<<CCR:hash|type|size>>> markers - the hash is the first pipe-delimited segment.",
+            },
             "query": {
                 "type": "string",
                 "description": "Optional: filter retrieved content to lines containing this query string",

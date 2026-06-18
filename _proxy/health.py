@@ -88,7 +88,9 @@ def _query_and_set_headroom_budget(port: int, timeout: float = 2.0) -> None:
                 if DEBUG_LOGGING:
                     _log.debug(
                         "headroom: fill_pct=%.1f%% budget=%d (from %s)",
-                        fill_pct, budget, port,
+                        fill_pct,
+                        budget,
+                        port,
                     )
     except Exception as exc:
         _log.debug("headroom query failed on :%d: %s", port, exc)

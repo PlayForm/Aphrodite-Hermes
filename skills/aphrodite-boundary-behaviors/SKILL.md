@@ -54,6 +54,7 @@ behavior, examine what the LLM sees in its context (raw markers vs expanded).
 **Cross-store routing**: The Python plugin routes `aphrodite_retrieve` through
 the token proxy (:9798). Content stored via `/ccr/create` on :9798 is
 retrievable from the Python tool. But the cache proxy (:9797) has its OWN store
+
 - content there is NOT visible to the token proxy and vice versa.
 
 ## Boundary 3: Center Annotation vs Storage

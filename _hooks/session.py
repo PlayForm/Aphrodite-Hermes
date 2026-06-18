@@ -111,7 +111,6 @@ def _pre_llm_hook(conversation_history=None, user_message=None, **kwargs):
     if target and proxy_available:
         _query_and_set_headroom_budget(target)
     if not _session_instruction_injected:
-
         _inject_session_instruction(conversation_history)
     headers = kwargs.get("headers")
     if headers:
@@ -150,6 +149,7 @@ def _pre_llm_hook(conversation_history=None, user_message=None, **kwargs):
         content = _inline_store.get(h_bare)
         if content is not None:
             import contextlib
+
             with contextlib.suppress(Exception):
                 m["meta"] = _classify_content(content)
 
@@ -169,7 +169,7 @@ def _pre_llm_hook(conversation_history=None, user_message=None, **kwargs):
                 inner = full_marker.split("CCR:", 1)[1]
                 for suffix in (">>>", "]", "⫸"):
                     if inner.endswith(suffix):
-                        inner = inner[:-len(suffix)]
+                        inner = inner[: -len(suffix)]
                         break
                 parts = inner.split("|")
                 if len(parts) < 3 or str(parts[1]) != "aphrodite":
@@ -201,21 +201,31 @@ def _pre_llm_hook(conversation_history=None, user_message=None, **kwargs):
             old_turns = [t for t in turns[:-6] if t["id"] not in _conv_index]
             if old_turns:
                 try:
-                    summaries = [{"turn": t["id"], "user": t.get("user", "")[:1000],
-                                  "assistant": t.get("assistant", "(tool calls)")[:1000]} for t in old_turns]
+                    summaries = [
+                        {
+                            "turn": t["id"],
+                            "user": t.get("user", "")[:1000],
+                            "assistant": t.get("assistant", "(tool calls)")[:1000],
+                        }
+                        for t in old_turns
+                    ]
                     packed = json.dumps(summaries)
                     if len(packed) > 500:
                         data = packed.encode()
                         archive_headers = {"Content-Type": "application/octet-stream"}
                         if _headroom_context:
                             archive_headers.update(_headroom_context)
-                        req = urllib.request.Request(f"http://127.0.0.1:{target}/ccr/create", data=data, headers=archive_headers)
+                        req = urllib.request.Request(
+                            f"http://127.0.0.1:{target}/ccr/create", data=data, headers=archive_headers
+                        )
                         with urllib.request.urlopen(req, timeout=3) as r:
                             ccr = json.loads(r.read())
                         kept = len(turns) - len(old_turns)
-                        compress_hint = (f"  [TURN ARCHIVE] CCR:{ccr['hash']} | "
-                                         f"turns T{turns[0]['id']}-T{old_turns[-1]['id']} "
-                                         f"({len(old_turns)} turns compressed, last {kept} raw)\n")
+                        compress_hint = (
+                            f"  [TURN ARCHIVE] CCR:{ccr['hash']} | "
+                            f"turns T{turns[0]['id']}-T{old_turns[-1]['id']} "
+                            f"({len(old_turns)} turns compressed, last {kept} raw)\n"
+                        )
                         for t in old_turns:
                             _conv_index[t["id"]] = (ccr["hash"], f"turn {t['id']}", 0)
                 except Exception as exc:
@@ -228,8 +238,17 @@ def _pre_llm_hook(conversation_history=None, user_message=None, **kwargs):
                 user_msg = str(msg.get("content", ""))[:200].lower()
                 break
     parts = _build_catalog_parts(
-        markers, total_bytes, _expanded_hashes, compress_hint,
-        proxy_available, token_alive, cache_alive, target, ctx_len, quiet_mode, user_msg,
+        markers,
+        total_bytes,
+        _expanded_hashes,
+        compress_hint,
+        proxy_available,
+        token_alive,
+        cache_alive,
+        target,
+        ctx_len,
+        quiet_mode,
+        user_msg,
     )
     if quiet_mode:
         return None

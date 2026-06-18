@@ -10,8 +10,8 @@ from .state import _state
 # ── Pre-baked constants ───────────────────────────────────────
 PORTS = {"cache": 9797, "token": 9798}
 REPO = "PlayForm/Aphrodite"
-BIN_VERSION = "v0.8.31"  # binary download version (must match Cargo.toml)
-PLUGIN_VERSION = "1.62.46"  # plugin version
+BIN_VERSION = "v0.8.33"  # binary download version (must match Cargo.toml)
+PLUGIN_VERSION = "1.62.48"  # plugin version
 BINARY_DIR = os.path.join(os.path.expanduser("~"), ".hermes", "aphrodite")
 BINARY = os.path.join(BINARY_DIR, "aphrodite")
 ENV_FILE = os.path.join(os.path.expanduser("~"), ".hermes", ".env")
@@ -287,9 +287,11 @@ def reload_config() -> None:
     _CONFIG = None
     _init_config()
     _log.info(
-        "config hot-reloaded: auto_expand_limit=%d engine_threshold=%d "
-        "catalog=%s context_engine=%s",
-        AUTO_EXPAND_LIMIT, ENGINE_THRESHOLD_PCT, CATALOG_MODE, CONTEXT_ENGINE,
+        "config hot-reloaded: auto_expand_limit=%d engine_threshold=%d catalog=%s context_engine=%s",
+        AUTO_EXPAND_LIMIT,
+        ENGINE_THRESHOLD_PCT,
+        CATALOG_MODE,
+        CONTEXT_ENGINE,
     )
 
 

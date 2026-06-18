@@ -73,7 +73,9 @@ def _catalog_handler(args=None, **kwargs):
         "total_items": len(items),
         "total_saved": sum(m["size"] for m in _recent_markers),
         "by_type": {t: {"count": len(hashes), "hashes": hashes[:10]} for t, hashes in sorted(by_type.items())},
-        "items": items, "conv_turns": len(_conv_index), "referenced_files": len(_referenced_files),
+        "items": items,
+        "conv_turns": len(_conv_index),
+        "referenced_files": len(_referenced_files),
     }
     return json.dumps(result, indent=2)
 
@@ -83,9 +85,15 @@ CATALOG_SCHEMA = {
     "description": "Return full compression catalog with hashes, sizes, types, previews. "
     "Mode 'toc' for compact table-of-contents with Retrieve? recommendations. "
     "Use toc BEFORE retrieving to avoid wasted round-trips.",
-    "parameters": {"type": "object", "properties": {
-        "mode": {"type": "string", "description": "Optional: 'toc' for compact table-of-contents, default full catalog"},
-    }},
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "mode": {
+                "type": "string",
+                "description": "Optional: 'toc' for compact table-of-contents, default full catalog",
+            },
+        },
+    },
 }
 
 
@@ -94,7 +102,8 @@ def _build_toc() -> str:
     if not markers:
         return "Catalog: 0 items"
     lines = [
-        f"Catalog: {len(markers)} items, {sum(m['size'] for m in markers)}B saved", "",
+        f"Catalog: {len(markers)} items, {sum(m['size'] for m in markers)}B saved",
+        "",
         "| Hash    | Type           | Size  | Preview                          | Retrieve? |",
         "|---------|----------------|-------|----------------------------------|-----------|",
     ]
@@ -104,16 +113,36 @@ def _build_toc() -> str:
         s = _fmt_size(m["size"])
         p = (m.get("preview", "") or "")[:45].replace("|", "/")
         retrieve = "YES"
-        if t in ("build_output", "build_error") and "0e" in p.lower() and "0w" in p.lower() or t == "terminal" and "exit=0" in p or t in ("grep", "search_files", "search_results") and ("0 matches" in p or "0m" in p) or t not in ("build_output", "build_error", "terminal") and "0E 0W" in p:
+        if (
+            t in ("build_output", "build_error")
+            and "0e" in p.lower()
+            and "0w" in p.lower()
+            or t == "terminal"
+            and "exit=0" in p
+            or t in ("grep", "search_files", "search_results")
+            and ("0 matches" in p or "0m" in p)
+            or t not in ("build_output", "build_error", "terminal")
+            and "0E 0W" in p
+        ):
             retrieve = "NO"
         lines.append(f"| {h:<7} | {t:<14} | {s:>5} | {p:<45} | {retrieve:<9} |")
     lines.extend(["", "Retrieve? = NO means the preview is sufficient - skip retrieval."])
     return "\n".join(lines)
 
 
-def _build_catalog_parts(markers, total_bytes, expanded_hashes, compress_hint,
-                         proxy_available, token_alive, cache_alive, target, ctx_len,
-                         quiet_mode, user_message):
+def _build_catalog_parts(
+    markers,
+    total_bytes,
+    expanded_hashes,
+    compress_hint,
+    proxy_available,
+    token_alive,
+    cache_alive,
+    target,
+    ctx_len,
+    quiet_mode,
+    user_message,
+):
     parts = []
     if not (markers or _conv_index or compress_hint or len(_referenced_files) > 5 or DEBUG_LOGGING or _expand_guidance):
         return parts if parts else None
@@ -132,10 +161,14 @@ def _build_catalog_parts(markers, total_bytes, expanded_hashes, compress_hint,
     if auto_parts:
         parts.append("  [AUTO] " + " | ".join(auto_parts))
     if DEBUG_LOGGING or CATALOG_MODE == "full":
-        parts.append(f"  ⚙ v{PLUGIN_VERSION} | engine={'on' if CONTEXT_ENGINE else 'off'} | dev={'on' if _DEV else 'off'}")
-        parts.append(f"  ⚙ thresholds: term={TERMINAL_THRESHOLD} inline=-- "
-                     f"tool_tok={TOOL_THRESHOLD_TOKEN} tool_cache={TOOL_THRESHOLD_CACHE} "
-                     f"engine_pct={ENGINE_THRESHOLD_PCT}% prot={ENGINE_PROTECT_FIRST}/{ENGINE_PROTECT_LAST} min={ENGINE_MIN_MSGS}")
+        parts.append(
+            f"  ⚙ v{PLUGIN_VERSION} | engine={'on' if CONTEXT_ENGINE else 'off'} | dev={'on' if _DEV else 'off'}"
+        )
+        parts.append(
+            f"  ⚙ thresholds: term={TERMINAL_THRESHOLD} inline=-- "
+            f"tool_tok={TOOL_THRESHOLD_TOKEN} tool_cache={TOOL_THRESHOLD_CACHE} "
+            f"engine_pct={ENGINE_THRESHOLD_PCT}% prot={ENGINE_PROTECT_FIRST}/{ENGINE_PROTECT_LAST} min={ENGINE_MIN_MSGS}"
+        )
     if CATALOG_MODE != "tool":
         git_info = _git_summary()
         if git_info:
@@ -158,19 +191,25 @@ def _build_catalog_parts(markers, total_bytes, expanded_hashes, compress_hint,
     elif CATALOG_MODE != "tool":
         parts.append(f"  mode=inline | {len(markers)} compressed items ({_fmt_size(total_bytes)} saved)")
     if markers:
-        parts.append("  ⚡ Tool outputs auto-expand before you see them - full content is inline. "
-                     "Context/terminal markers require aphrodite_retrieve(hash) to fetch.")
+        parts.append(
+            "  ⚡ Tool outputs auto-expand before you see them - full content is inline. "
+            "Context/terminal markers require aphrodite_retrieve(hash) to fetch."
+        )
     if markers or len(expanded_hashes) > 0:
-        parts.extend([
-            f"  [{len(markers)} markers available | {len(expanded_hashes)} tool outputs auto-expanded this turn]",
-            "  Call aphrodite_catalog to list all entries, aphrodite_retrieve(hash) to fetch.",
-            "  For full tool reference, load aphrodite-tool-guide skill (skill_view).",
-        ])
+        parts.extend(
+            [
+                f"  [{len(markers)} markers available | {len(expanded_hashes)} tool outputs auto-expanded this turn]",
+                "  Call aphrodite_catalog to list all entries, aphrodite_retrieve(hash) to fetch.",
+                "  For full tool reference, load aphrodite-tool-guide skill (skill_view).",
+            ]
+        )
     engine = get_engine()
     if engine and engine.compression_count > 0:
-        parts.append(f"  engine: {engine.compression_count} compressions | last: "
-                     f"{engine.last_compression.get('messages_compressed', '?')} msgs → "
-                     f"CCR:{engine.last_compression.get('hash', '?')[:8]}")
+        parts.append(
+            f"  engine: {engine.compression_count} compressions | last: "
+            f"{engine.last_compression.get('messages_compressed', '?')} msgs → "
+            f"CCR:{engine.last_compression.get('hash', '?')[:8]}"
+        )
     if compress_hint:
         parts.append(compress_hint)
     if CATALOG_MODE == "full" and markers:
@@ -240,6 +279,6 @@ def _build_catalog_parts(markers, total_bytes, expanded_hashes, compress_hint,
         words = set(user_message.lower().split()) if user_message else set()
         if words & _READ_KEYWORDS and markers:
             recent_markers = markers[-3:]
-            hashes = " ".join(m['hash'][:12] for m in recent_markers)
+            hashes = " ".join(m["hash"][:12] for m in recent_markers)
             parts.append(f"  intent=read | recent CCRs: {hashes}")
     return parts if parts else None

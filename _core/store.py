@@ -32,6 +32,7 @@ _hash_to_trigrams: dict = {}  # {hash: set_of_trigrams} reverse index for O(1) e
 
 # ── Shared utilities ──────────────────────────────────────────
 
+
 def _fmt_size(b):
     if b >= 1_000_000:
         return f"{b / 1_000_000:.1f}MB"

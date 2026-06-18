@@ -72,25 +72,34 @@ def _prefetch_handler(args=None, **kwargs):
                 h, _ = ccr
                 _inline_store_put(h, content)
                 with lock:
-                    _recent_markers.append({
-                        "hash": h, "type": klass.get("type", "text"),
-                        "size": size, "preview": preview,
-                        "turn": _state.get("turn_counter", 0),
-                        "meta": {"path": path},
-                    })
+                    _recent_markers.append(
+                        {
+                            "hash": h,
+                            "type": klass.get("type", "text"),
+                            "size": size,
+                            "preview": preview,
+                            "turn": _state.get("turn_counter", 0),
+                            "meta": {"path": path},
+                        }
+                    )
                     markers.append({"hash": h, "path": path, "type": klass.get("type"), "size": size})
                 return
         try:
             from .._inline import _inline_compress
+
             h, _ = _inline_compress(content)
             _inline_store_put(h, content)
             with lock:
-                _recent_markers.append({
-                    "hash": h, "type": klass.get("type", "text"),
-                    "size": size, "preview": preview,
-                    "turn": _state.get("turn_counter", 0),
-                    "meta": {"path": path},
-                })
+                _recent_markers.append(
+                    {
+                        "hash": h,
+                        "type": klass.get("type", "text"),
+                        "size": size,
+                        "preview": preview,
+                        "turn": _state.get("turn_counter", 0),
+                        "meta": {"path": path},
+                    }
+                )
                 markers.append({"hash": h, "path": path, "type": klass.get("type"), "size": size})
         except Exception as e:
             with lock:
@@ -99,11 +108,14 @@ def _prefetch_handler(args=None, **kwargs):
     for path in paths:
         threading.Thread(target=_read_and_compress, args=(path,), daemon=True).start()
 
-    return json.dumps({
-        "prefetching": len(paths),
-        "markers": markers,
-        "note": "Files loading in background. Use TOC to check, aphrodite_retrieve(hash) to fetch.",
-    }, indent=2)
+    return json.dumps(
+        {
+            "prefetching": len(paths),
+            "markers": markers,
+            "note": "Files loading in background. Use TOC to check, aphrodite_retrieve(hash) to fetch.",
+        },
+        indent=2,
+    )
 
 
 PREFETCH_SCHEMA = {
@@ -146,14 +158,10 @@ def _prefetch_status_handler(args=None, **kwargs):
         )
     for path, r in pending:
         lines.append(
-            f"| LOADING | {path[:40]:<40} | {r.get('size', 0):>6}B | "
-            f"{r.get('eta_s', 0):>4.1f}s | -          |"
+            f"| LOADING | {path[:40]:<40} | {r.get('size', 0):>6}B | {r.get('eta_s', 0):>4.1f}s | -          |"
         )
     for path, r in errors:
-        lines.append(
-            f"| ERROR   | {path[:40]:<40} | -       | -      | "
-            f"{str(r.get('error', '?'))[:30]:<30} |"
-        )
+        lines.append(f"| ERROR   | {path[:40]:<40} | -       | -      | {str(r.get('error', '?'))[:30]:<30} |")
 
     lines.append("")
     lines.append("READY = retrieve now. LOADING = ETA is estimated, poll again.")

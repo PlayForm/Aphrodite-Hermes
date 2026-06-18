@@ -5,34 +5,32 @@ import re as _re
 _CODE_PATTERNS: dict[str, dict[str, _re.Pattern]] = {
     "rust": {
         "fn": _re.compile(
-            r'^\s*(?:pub(?:\s*\(\s*crate\s*\))?\s+)?(?:async\s+)?fn\s+(\w+(?:::\w+)*)\s*\(([^)]*)\)(?:\s*->\s*(\S+(?:\s*\+\s*\S+)*))?',
+            r"^\s*(?:pub(?:\s*\(\s*crate\s*\))?\s+)?(?:async\s+)?fn\s+(\w+(?:::\w+)*)\s*\(([^)]*)\)(?:\s*->\s*(\S+(?:\s*\+\s*\S+)*))?",
             _re.MULTILINE,
         ),
-        "struct": _re.compile(r'^\s*(?:pub\s+)?struct\s+(\w+)', _re.MULTILINE),
+        "struct": _re.compile(r"^\s*(?:pub\s+)?struct\s+(\w+)", _re.MULTILINE),
         "impl": _re.compile(
-            r'^\s*impl(?:\s*<\s*\w+(?:\s*,\s*\w+)*\s*>)?\s+(\w+(?:::\w)*(?:\s*<\s*\w+(?:\s*,\s*\w+)*\s*>)?)',
+            r"^\s*impl(?:\s*<\s*\w+(?:\s*,\s*\w+)*\s*>)?\s+(\w+(?:::\w)*(?:\s*<\s*\w+(?:\s*,\s*\w+)*\s*>)?)",
             _re.MULTILINE,
         ),
-        "trait": _re.compile(r'^\s*(?:pub\s+)?trait\s+(\w+)', _re.MULTILINE),
-        "mod": _re.compile(r'^\s*(?:pub\s+)?mod\s+(\w+)', _re.MULTILINE),
+        "trait": _re.compile(r"^\s*(?:pub\s+)?trait\s+(\w+)", _re.MULTILINE),
+        "mod": _re.compile(r"^\s*(?:pub\s+)?mod\s+(\w+)", _re.MULTILINE),
     },
     "python": {
-        "def": _re.compile(r'^\s*(?:async\s+)?def\s+(\w+)\s*\(([^)]*)\)', _re.MULTILINE),
-        "class": _re.compile(r'^\s*class\s+(\w+)', _re.MULTILINE),
+        "def": _re.compile(r"^\s*(?:async\s+)?def\s+(\w+)\s*\(([^)]*)\)", _re.MULTILINE),
+        "class": _re.compile(r"^\s*class\s+(\w+)", _re.MULTILINE),
     },
     "go": {
-        "func": _re.compile(
-            r'^\s*func\s+(?:\(\w+\s+\*?\w+\)\s+)?(\w+)\s*\(([^)]*)\)', _re.MULTILINE
-        ),
-        "type": _re.compile(r'^\s*type\s+(\w+)\s+struct', _re.MULTILINE),
-        "interface": _re.compile(r'^\s*type\s+(\w+)\s+interface', _re.MULTILINE),
+        "func": _re.compile(r"^\s*func\s+(?:\(\w+\s+\*?\w+\)\s+)?(\w+)\s*\(([^)]*)\)", _re.MULTILINE),
+        "type": _re.compile(r"^\s*type\s+(\w+)\s+struct", _re.MULTILINE),
+        "interface": _re.compile(r"^\s*type\s+(\w+)\s+interface", _re.MULTILINE),
     },
     "js": {
         "function": _re.compile(
-            r'(?:async\s+)?function\s+(\w+)\s*\(([^)]*)\)|\b(\w+)\s*=\s*(?:async\s*)?\(([^)]*)\)\s*=>',
+            r"(?:async\s+)?function\s+(\w+)\s*\(([^)]*)\)|\b(\w+)\s*=\s*(?:async\s*)?\(([^)]*)\)\s*=>",
             _re.MULTILINE,
         ),
-        "class": _re.compile(r'class\s+(\w+)', _re.MULTILINE),
+        "class": _re.compile(r"class\s+(\w+)", _re.MULTILINE),
     },
 }
 

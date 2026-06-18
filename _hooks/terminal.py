@@ -44,7 +44,10 @@ def _transform_terminal_hook(command="", output="", returncode=0, **kwargs):
         if DEBUG_LOGGING:
             _log.debug(
                 "terminal_hook: BELOW size=%s < threshold=%s %.1fms (cmd: %s)",
-                out_len, TERMINAL_THRESHOLD, (time.time() - _t0) * 1000, command[:60],
+                out_len,
+                TERMINAL_THRESHOLD,
+                (time.time() - _t0) * 1000,
+                command[:60],
             )
         return output
 
@@ -52,7 +55,8 @@ def _transform_terminal_hook(command="", output="", returncode=0, **kwargs):
         if DEBUG_LOGGING:
             _log.debug(
                 "terminal_hook: GUARD has existing CCR marker %.1fms (cmd: %s)",
-                (time.time() - _t0) * 1000, command[:60],
+                (time.time() - _t0) * 1000,
+                command[:60],
             )
         return output
 
@@ -61,8 +65,15 @@ def _transform_terminal_hook(command="", output="", returncode=0, **kwargs):
     is_build = any(
         first_line.startswith(p)
         for p in (
-            "Compiling ", "   Compiling ", "Finished ", "error:",
-            "warning:", "Running ", "PASSED", "FAILED", "test result:",
+            "Compiling ",
+            "   Compiling ",
+            "Finished ",
+            "error:",
+            "warning:",
+            "Running ",
+            "PASSED",
+            "FAILED",
+            "test result:",
         )
     )
     if is_build:
@@ -99,7 +110,9 @@ def _transform_terminal_hook(command="", output="", returncode=0, **kwargs):
             if DEBUG_LOGGING:
                 _log.debug(
                     "terminal_hook: BUILD collapse %d→%d lines (cmd: %s)",
-                    len(lines), len(summary.split("\n")), command[:60],
+                    len(lines),
+                    len(summary.split("\n")),
+                    command[:60],
                 )
             if proxy_available:
                 target = PORTS["token"] if token_alive else PORTS["cache"]
@@ -138,7 +151,10 @@ def _transform_terminal_hook(command="", output="", returncode=0, **kwargs):
                 ratio = out_len / max(len(h), 1)
                 _log.debug(
                     "terminal_hook: CCR %s:%s size=%s ratio=%.1fx",
-                    "token" if token_alive else "cache", h, orig_len, ratio,
+                    "token" if token_alive else "cache",
+                    h,
+                    orig_len,
+                    ratio,
                 )
             _recent_markers.append({"hash": h, "type": "terminal", "size": orig_len, "preview": preview})
             return f"<<<CCR:{h}|terminal|{orig_len}>>> {preview}"

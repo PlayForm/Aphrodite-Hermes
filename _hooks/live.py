@@ -17,7 +17,7 @@ import urllib.request
 # ── Bubble config (self-contained, no TOML) ──────────────────────
 _PROXY_URL = "http://127.0.0.1:9798"
 _MIN_BYTES = 2048  # Only wrap results above this size
-_TIMEOUT = 3       # Proxy request timeout
+_TIMEOUT = 3  # Proxy request timeout
 
 
 def _is_active() -> bool:

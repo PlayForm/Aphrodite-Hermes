@@ -126,7 +126,7 @@ read_file:
 - **Classifier:** `plugins/aphrodite/_marker.py` → `_classify_content()` -
   detects 10+ content types
 - **Preview formatter:** `plugins/aphrodite/_marker.py` → `_make_ccr_preview()`
-  - generates `[type:...]`
+    - generates `[type:...]`
 - **Output formatter:** `plugins/aphrodite/_hooks.py` →
   `_format_aphrodite_output()` + `_fmt_{catalog,stats,diff,files}()`
 - **Hook wiring:** `plugins/aphrodite/_hooks.py` → `_transform_tool_result()`

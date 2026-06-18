@@ -27,8 +27,7 @@ RECLASSIFY_SCHEMA = {
             },
             "action": {
                 "type": "string",
-                "description": "Set to 'all' to reclassify all entries lacking meta. "
-                "Ignored if hash is provided.",
+                "description": "Set to 'all' to reclassify all entries lacking meta. Ignored if hash is provided.",
                 "default": "all",
             },
         },
@@ -63,10 +62,13 @@ def _aphrodite_reclassify_handler(args=None, **kwargs):
         return json.dumps({"error": f"unknown action: {action}", "reclassified": 0})
 
     if not candidates:
-        return json.dumps({
-            "reclassified": 0, "type_distribution": {},
-            "note": "all entries already have metadata",
-        })
+        return json.dumps(
+            {
+                "reclassified": 0,
+                "type_distribution": {},
+                "note": "all entries already have metadata",
+            }
+        )
 
     type_counts = {}
     reclassified = 0
@@ -107,13 +109,16 @@ def _aphrodite_reclassify_handler(args=None, **kwargs):
     elapsed = _time.time() - t0
     total_with_meta = sum(1 for m in _recent_markers if m.get("meta") and m["meta"] != {})
 
-    return json.dumps({
-        "reclassified": reclassified,
-        "skipped_no_content": skipped_no_content,
-        "errors": errors,
-        "elapsed_ms": round(elapsed * 1000, 1),
-        "total_with_meta": total_with_meta,
-        "total_entries": len(_recent_markers),
-        "type_distribution": dict(sorted(type_counts.items())),
-        "note": f"{reclassified} entries enriched with retroactive metadata",
-    }, indent=2)
+    return json.dumps(
+        {
+            "reclassified": reclassified,
+            "skipped_no_content": skipped_no_content,
+            "errors": errors,
+            "elapsed_ms": round(elapsed * 1000, 1),
+            "total_with_meta": total_with_meta,
+            "total_entries": len(_recent_markers),
+            "type_distribution": dict(sorted(type_counts.items())),
+            "note": f"{reclassified} entries enriched with retroactive metadata",
+        },
+        indent=2,
+    )

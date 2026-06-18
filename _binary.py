@@ -20,14 +20,16 @@ _log = logging.getLogger("aphrodite")
 _cached_version_ok: bool = False
 
 # Valid binary magic bytes: ELF, Mach-O, PE
-_BINARY_MAGICS = frozenset((
-    b'\x7fELF',           # ELF
-    b'\xfe\xed\xfa\xce',  # Mach-O 32-bit
-    b'\xfe\xed\xfa\xcf',  # Mach-O 64-bit
-    b'\xcf\xfa\xed\xfe',  # Mach-O reverse-endian 64-bit
-    b'\xca\xfe\xba\xbe',  # Mach-O universal (fat binary)
-    b'MZ\x90\x00',        # PE (portable executable)
-))
+_BINARY_MAGICS = frozenset(
+    (
+        b"\x7fELF",  # ELF
+        b"\xfe\xed\xfa\xce",  # Mach-O 32-bit
+        b"\xfe\xed\xfa\xcf",  # Mach-O 64-bit
+        b"\xcf\xfa\xed\xfe",  # Mach-O reverse-endian 64-bit
+        b"\xca\xfe\xba\xbe",  # Mach-O universal (fat binary)
+        b"MZ\x90\x00",  # PE (portable executable)
+    )
+)
 
 
 def _restore_bak(bak):
@@ -86,7 +88,7 @@ def _download_binary() -> bool:
         # 🛡 Magic-byte validation
         with open(BINARY, "rb") as f:
             magic = f.read(4)
-        if magic not in _BINARY_MAGICS and not magic.startswith(b'MZ'):
+        if magic not in _BINARY_MAGICS and not magic.startswith(b"MZ"):
             _log.warning("downloaded binary has invalid magic bytes: %r", magic)
             _restore_bak(bak)
             return False
@@ -119,12 +121,13 @@ def _check_binary_version() -> bool:
             timeout=5,
         )
         version_str = r.stdout.strip() or r.stderr.strip()
-        if version_str and re.search(r'\b' + re.escape(BIN_VERSION.lstrip("v")) + r'\b', version_str):
+        if version_str and re.search(r"\b" + re.escape(BIN_VERSION.lstrip("v")) + r"\b", version_str):
             _cached_version_ok = True
             return True
         _log.info(
             "binary version mismatch: got %r, expected %s - re-downloading",
-            version_str, BIN_VERSION,
+            version_str,
+            BIN_VERSION,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as e:
         _log.info("binary version check failed: %s - re-downloading", e)

@@ -57,5 +57,8 @@ def _parse_ccr_markers(text):
                 )
             except ValueError:
                 _parse_errors += 1
-                _log.debug("_parse_ccr_markers: malformed marker skipped in %d-char text", len(text) if isinstance(text, str) else 0)
+                _log.debug(
+                    "_parse_ccr_markers: malformed marker skipped in %d-char text",
+                    len(text) if isinstance(text, str) else 0,
+                )
     return [m for m in markers if _is_valid_ccr_hash(m["hash"])]

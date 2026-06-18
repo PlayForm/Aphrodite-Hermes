@@ -109,8 +109,7 @@ aphrodite_rebuild()
 # Returns {"ok": true, "size": N, "path": "..."}
 ```
 
-**Requires:** Cargo in PATH, source at Aphrodite root. Timeout: 300
-seconds.
+**Requires:** Cargo in PATH, source at Aphrodite root. Timeout: 300 seconds.
 
 ### 5. `aphrodite_files()`
 

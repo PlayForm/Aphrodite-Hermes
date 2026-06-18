@@ -238,7 +238,9 @@ class AphroditeContextEngine(ContextEngine):
         preview = packed[:120].replace("\n", " ").strip()
         _recent_markers.append({"hash": hash_val, "type": "context", "size": len(packed), "preview": preview})
 
-        ccr = _ccr_marker(hash_val, "context", len(packed), mode="engine", headroom_budget=_headroom_context.get("x-headroom-budget"))
+        ccr = _ccr_marker(
+            hash_val, "context", len(packed), mode="engine", headroom_budget=_headroom_context.get("x-headroom-budget")
+        )
         marker = (
             f"{ccr}\n"
             f"{_render_prompt_tmpl('engine_offload', {'hash': hash_val, 'tail': str(self.protect_last_n)})}\n"

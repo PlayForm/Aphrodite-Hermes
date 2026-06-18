@@ -6,10 +6,10 @@ from .config import CCR_MARKER_HINT, _toml_section
 
 
 def _render_template(
-    family: str,            # "compact" | "code_first" | "balance"
-    ctype: str,             # content type key (diff, build_output, ...)
-    vars: dict,             # template variables
-    default: str = "",      # fallback format string
+    family: str,  # "compact" | "code_first" | "balance"
+    ctype: str,  # content type key (diff, build_output, ...)
+    vars: dict,  # template variables
+    default: str = "",  # fallback format string
 ) -> str:
     """Render a preview template for the given family + content type.
 
@@ -49,7 +49,7 @@ def _render_template(
     fn_val = safe.get("fn", "")
     safe["fx"] = f" {fn_val[:40]}" if fn_val else ""
     cmd_val = safe.get("cmd", "")
-    safe["cmx"] = _re.sub(r'^[\$>]\s*', '', cmd_val.strip())[:40] if cmd_val else "?"
+    safe["cmx"] = _re.sub(r"^[\$>]\s*", "", cmd_val.strip())[:40] if cmd_val else "?"
     sigs_val = safe.get("sigs", "")
     safe["sig1"] = sigs_val.split(";")[0].strip() if sigs_val else ""
 

@@ -22,13 +22,15 @@ def _search_handler(args=None, **kwargs):
     ccr_type = args.get("type", "")
 
     if query and len(query) < 3:
-        return json.dumps({
-            "query": query,
-            "type_filter": ccr_type,
-            "matches": 0,
-            "error": "query too short - minimum 3 characters required",
-            "results": [],
-        })
+        return json.dumps(
+            {
+                "query": query,
+                "type_filter": ccr_type,
+                "matches": 0,
+                "error": "query too short - minimum 3 characters required",
+                "results": [],
+            }
+        )
 
     if not _inline_index_enabled and _inline_store:
         _init_trigram_index()
@@ -43,7 +45,7 @@ def _search_handler(args=None, **kwargs):
 
     # Search inline store via trigram index
     if query:
-        trigrams = {query[i:i + 3] for i in range(len(query) - 2)}
+        trigrams = {query[i : i + 3] for i in range(len(query) - 2)}
         candidates = set()
         if trigrams and _inline_index:
             for tri in trigrams:
@@ -67,13 +69,15 @@ def _search_handler(args=None, **kwargs):
     for m in _recent_markers:
         if query and query not in m.get("preview", "").lower():
             continue
-        results.append({
-            "source": "marker",
-            "hash": m["hash"],
-            "type": m.get("type", "?"),
-            "size": m.get("size", 0),
-            "preview": m.get("preview", "")[:200],
-        })
+        results.append(
+            {
+                "source": "marker",
+                "hash": m["hash"],
+                "type": m.get("type", "?"),
+                "size": m.get("size", 0),
+                "preview": m.get("preview", "")[:200],
+            }
+        )
 
     # Deduplicate by hash
     seen = set()
@@ -87,17 +91,20 @@ def _search_handler(args=None, **kwargs):
 
     if ccr_type:
         results = [
-            r for r in results
+            r
+            for r in results
             if ccr_type in r.get("type", "") or ccr_type in r.get("summary", "") + r.get("preview", "")
         ]
 
-    return json.dumps({
-        "query": query,
-        "type_filter": ccr_type,
-        "matches": len(results),
-        "hint": "Use aphrodite_retrieve(hash) to expand any result hash.",
-        "results": results[:20],
-    })
+    return json.dumps(
+        {
+            "query": query,
+            "type_filter": ccr_type,
+            "matches": len(results),
+            "hint": "Use aphrodite_retrieve(hash) to expand any result hash.",
+            "results": results[:20],
+        }
+    )
 
 
 SEARCH_SCHEMA = {

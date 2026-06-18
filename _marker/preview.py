@@ -63,9 +63,14 @@ def _make_ccr_preview(content: str, klass: dict | None = None, model_family: str
 
     # ── Code structure-map enrichment ────────────────────────────────
     if ctype in ("code", "code_rust", "code_python", "code_go", "code_js", "code_ts", "code_sh"):
-        lang = {"code_rust": "rust", "code_python": "python",
-                "code_go": "go", "code_js": "js", "code_ts": "js",
-                "code_sh": "sh"}.get(ctype, "")
+        lang = {
+            "code_rust": "rust",
+            "code_python": "python",
+            "code_go": "go",
+            "code_js": "js",
+            "code_ts": "js",
+            "code_sh": "sh",
+        }.get(ctype, "")
         struct = _extract_code_structure(content, lang)
         if struct:
             sigs = struct.get("fns", [])
