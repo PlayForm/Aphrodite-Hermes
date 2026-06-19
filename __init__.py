@@ -1,5 +1,5 @@
 """
-aphrodite v1.62.51 - CCR compression plugin for Hermes Agent.
+aphrodite v1.62.53 - CCR compression plugin for Hermes Agent.
 
 Auto-install + launch aphrodite proxies:
 - Cache (:9797): in-memory CCR, >8KB threshold
@@ -119,7 +119,7 @@ from ._tools import (
 _log = logging.getLogger("aphrodite")
 
 # Sync docstring version with PLUGIN_VERSION
-__doc__ = (__doc__ or "").replace("v1.62.23", f"v{PLUGIN_VERSION}")
+__doc__ = (__doc__ or "").replace("v1.62.53", f"v{PLUGIN_VERSION}")
 
 
 # ── Plugin registration ───────────────────────────────────────────
