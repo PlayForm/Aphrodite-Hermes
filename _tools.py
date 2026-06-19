@@ -47,7 +47,8 @@ def _retrieve_handler(args=None, **kwargs):
             if query:
                 content = _filter_lines(content, query)
             return json.dumps({"content": content, "path": path, "size": len(content)})
-        content = _resolve_recursive(hash_val)
+        depth_val = args.get("depth")
+        content = _resolve_recursive(hash_val, retrieve_depth=depth_val)
         if content is not None and not content.startswith("<<<CCR:"):
             if query:
                 content = _filter_lines(content, query)
@@ -158,6 +159,11 @@ RETRIEVE_SCHEMA = {
                 "description": "Optional: filter retrieved content to lines containing this query string",
             },
             "path": {"type": "string", "description": "Optional: file path to read directly (bypasses CCR)"},
+            "depth": {
+                "type": "integer",
+                "description": "Optional: compression depth. 1 = raw original (default), 2 = Headroom-reduced version.",
+                "enum": [1, 2],
+            },
         },
         "required": [],
     },

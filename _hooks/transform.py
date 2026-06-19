@@ -25,6 +25,7 @@ from .._core import (
 from .._inline import _inline_compress
 from .._marker import _ccr_marker, _classify_content, _compress_via_proxy, _make_ccr_preview
 from .._proxy import _alive_cached, _headroom_context
+from .._stage2 import compress_stage2
 from .catalog import _fmt_catalog
 from .classify import _classifier_says_skip
 from .diff import _fmt_diff
@@ -180,6 +181,21 @@ def _transform_tool_result(tool_name="", args=None, result="", **kwargs):
                 threshold,
                 (time.time() - _t0) * 1000,
             )
+        # Store below-threshold content in inline store so aphrodite_retrieve
+        # can find it later. No marker emitted — content stays inline.
+        try:
+            h, _ = _inline_compress(result)
+            full_sha = hashlib.sha256(result.encode("utf-8")).hexdigest()
+            _hash_alias[full_sha] = h
+            _recent_markers.append({
+                "hash": h,
+                "type": marker_type,
+                "size": result_len,
+                "preview": result[:120],
+                "turn": _state["turn_counter"],
+            })
+        except Exception:
+            pass
         return result
     if _CCR_RE.search(result):
         if DEBUG_LOGGING:
@@ -193,7 +209,34 @@ def _transform_tool_result(tool_name="", args=None, result="", **kwargs):
     if _classifier_says_skip(klass):
         if proxy_available:
             target = PORTS["token"] if token_alive else PORTS["cache"]
-            _compress_via_proxy(result, target, headers=_headroom_context or None)
+            ccr = _compress_via_proxy(result, target, headers=_headroom_context or None)
+            if ccr:
+                h, _ = ccr
+                _inline_store_put(h, result)
+                full_sha = hashlib.sha256(result.encode("utf-8")).hexdigest()
+                _hash_alias[full_sha] = h
+                _recent_markers.append({
+                    "hash": h,
+                    "type": marker_type,
+                    "size": result_len,
+                    "preview": preview,
+                    "turn": _state["turn_counter"],
+                })
+        else:
+            # No proxy — store in inline as fallback
+            try:
+                h, _ = _inline_compress(result)
+                full_sha = hashlib.sha256(result.encode("utf-8")).hexdigest()
+                _hash_alias[full_sha] = h
+                _recent_markers.append({
+                    "hash": h,
+                    "type": marker_type,
+                    "size": result_len,
+                    "preview": preview,
+                    "turn": _state["turn_counter"],
+                })
+            except Exception:
+                pass
         return _make_ccr_preview(result, klass=klass, model_family=_detect_model_family())
     preview = _make_ccr_preview(result, klass=klass, model_family=_detect_model_family())
     metadata = _extract_tool_metadata(tool_name, args, result)
@@ -216,7 +259,13 @@ def _transform_tool_result(tool_name="", args=None, result="", **kwargs):
                     "meta": metadata or {},
                 }
             )
-            _inline_store_put(h, result)
+            # Stage 2: semantic reduction (fire-and-forget)
+            try:
+                reduced = compress_stage2(result, klass.get("type", "text"))
+                if reduced:
+                    _inline_store_put(f"{h}#stage2", reduced)
+            except Exception:
+                pass
             if DEBUG_LOGGING:
                 _log.debug(
                     "transform_tool_result: CCR %s %s:%s size=%s ratio=%.1fx %.1fms",

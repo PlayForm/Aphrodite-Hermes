@@ -4,12 +4,13 @@ Run from monorepo root: python -m pytest plugins/aphrodite/tests/test_core.py -v
 """
 
 import hashlib
+
 from plugins.aphrodite._core import config as core_config
 from plugins.aphrodite._core import store
-from plugins.aphrodite._marker import classify
-from plugins.aphrodite._marker import parse as marker_parse
-from plugins.aphrodite._marker import marker as marker_mod
 from plugins.aphrodite._inline import _inline_compress, _inline_retrieve, _inline_store
+from plugins.aphrodite._marker import classify
+from plugins.aphrodite._marker import marker as marker_mod
+from plugins.aphrodite._marker import parse as marker_parse
 
 
 class TestConfig:

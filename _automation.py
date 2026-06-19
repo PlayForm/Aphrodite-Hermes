@@ -92,7 +92,8 @@ def _auto_version_check() -> str:
         running = (r.stdout or r.stderr or "").strip()
         # Dynamic label uses the one from _core that user keeps updated
         expected = BIN_VERSION
-        if running and expected in running:
+        if running and running.strip("vV") == expected.strip("vV"):
+            return ""
             return ""
         return f"  binary version: running={running[:40]}, plugin expects={expected} - mismatch (aphrodite_rebuild recommended)"
     except Exception as exc:

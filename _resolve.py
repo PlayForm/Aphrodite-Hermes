@@ -35,7 +35,7 @@ def _filter_lines(content: str, query: str) -> str:
     return "\n".join(lines)
 
 
-def _resolve_one(hash_val, timeout=4, query="", headers=None):
+def _resolve_one(hash_val, timeout=4, query="", headers=None, depth=None):
     """Resolve a single CCR hash. Checks inline store first, then tries both proxies
     concurrently using ThreadPoolExecutor for reduced latency.
 
@@ -51,11 +51,22 @@ def _resolve_one(hash_val, timeout=4, query="", headers=None):
         if content is not None:
             return _filter_lines(content, query)
         return None
+    # Stage-2 depth: look up reduced version in inline store first
+    stage2_key = f"{hash_val}#stage2"
+    if depth == 2:
+        content = _inline_retrieve(stage2_key)
+        if content is not None:
+            if query:
+                content = _filter_lines(content, query)
+            return content
+        # Fall back to proxy with depth=2
     content = _inline_retrieve(hash_val)
     if content is not None:
         return _filter_lines(content, query)
     # Try both proxies concurrently
     payload = {"hash": hash_val}
+    if depth:
+        payload["depth"] = depth
     if query:
         payload["query"] = query
     futures = {}
@@ -114,7 +125,7 @@ def _proxy_lookup(port: int, payload: dict, timeout: int = 4, headers: dict | No
     return None
 
 
-def _resolve_recursive(hash_val, depth=0, resolved=None, _visited=None, headers=None):
+def _resolve_recursive(hash_val, depth=0, resolved=None, _visited=None, headers=None, retrieve_depth=None):
     """Resolve a CCR hash and recursively unpack all nested <<<CCR:...>>> markers.
 
     Calls _resolve_one to fetch the content for the top-level hash, then scans
@@ -145,7 +156,7 @@ def _resolve_recursive(hash_val, depth=0, resolved=None, _visited=None, headers=
     _visited.add(hash_val)
     if depth >= RECURSIVE_DEPTH or hash_val in resolved:
         return resolved.get(hash_val)
-    content = _resolve_one(hash_val, headers=headers or (_headroom_context or None))
+    content = _resolve_one(hash_val, headers=headers or (_headroom_context or None), depth=retrieve_depth)
     if content is None:
         return f"[CCR_UNRESOLVED:{hash_val}]"
     resolved[hash_val] = content
@@ -162,7 +173,8 @@ def _resolve_recursive(hash_val, depth=0, resolved=None, _visited=None, headers=
             nested_content = _resolve_recursive(nested_hash, depth + 1, resolved, headers=headers)
             replacements[full_marker] = nested_content
     for marker_str, replacement in replacements.items():
-        content = content.replace(marker_str, replacement)
+        if replacement is not None:
+            content = content.replace(marker_str, replacement)
     # Guard re-store: skip if expanded content exceeds 512KB to avoid ballooning inline store
     if len(content) <= 524288:
         _inline_store_put(hash_val, content)

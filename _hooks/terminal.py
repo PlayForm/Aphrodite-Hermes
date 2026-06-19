@@ -49,6 +49,14 @@ def _transform_terminal_hook(command="", output="", returncode=0, **kwargs):
                 (time.time() - _t0) * 1000,
                 command[:60],
             )
+        # Store in inline so aphrodite_retrieve can still find it
+        try:
+            h, _ = _inline_compress(output)
+            full_sha = hashlib.sha256(output.encode("utf-8")).hexdigest()
+            _hash_alias[full_sha] = h
+            _recent_markers.append({"hash": h, "type": "terminal", "size": out_len, "preview": output[:120]})
+        except Exception:
+            pass
         return output
 
     if _CCR_RE.search(output):
@@ -105,6 +113,24 @@ def _transform_terminal_hook(command="", output="", returncode=0, **kwargs):
             if not errors and not warnings:
                 if DEBUG_LOGGING:
                     _log.debug("terminal_hook: clean build - inline summary, no CCR")
+                # Store original output even for clean builds
+                if proxy_available:
+                    target = PORTS["token"] if token_alive else PORTS["cache"]
+                    ccr = _compress_via_proxy(output, target, headers=_headroom_context or None)
+                    if ccr:
+                        h, _ = ccr
+                        _inline_store_put(h, output)
+                        full_sha = hashlib.sha256(output.encode("utf-8")).hexdigest()
+                        _hash_alias[full_sha] = h
+                        _recent_markers.append({"hash": h, "type": "build", "size": len(output), "preview": summary})
+                else:
+                    try:
+                        h, _ = _inline_compress(output)
+                        full_sha = hashlib.sha256(output.encode("utf-8")).hexdigest()
+                        _hash_alias[full_sha] = h
+                        _recent_markers.append({"hash": h, "type": "build", "size": len(output), "preview": summary})
+                    except Exception:
+                        pass
                 return summary
             out_len = len(summary)
             if DEBUG_LOGGING:
@@ -135,6 +161,23 @@ def _transform_terminal_hook(command="", output="", returncode=0, **kwargs):
     # Classifier poll: clean terminal outputs skip CCR
     klass = _classify_content(output)
     if _classifier_says_skip(klass):
+        # Store in inline + proxy even when skipping marker emission
+        if proxy_available:
+            target = PORTS["token"] if token_alive else PORTS["cache"]
+            ccr = _compress_via_proxy(output, target, headers=_headroom_context or None)
+            if ccr:
+                h, _ = ccr
+                _inline_store_put(h, output)
+                full_sha = hashlib.sha256(output.encode("utf-8")).hexdigest()
+                _hash_alias[full_sha] = h
+                _recent_markers.append({"hash": h, "type": "terminal", "size": orig_len, "preview": _make_ccr_preview(output, klass=klass, model_family=_detect_model_family())})
+        else:
+            try:
+                h, _ = _inline_compress(output)
+                full_sha = hashlib.sha256(output.encode("utf-8")).hexdigest()
+                _hash_alias[full_sha] = h
+            except Exception:
+                pass
         return _make_ccr_preview(output, klass=klass, model_family=_detect_model_family())
 
     preview = _make_ccr_preview(output, model_family=_detect_model_family())

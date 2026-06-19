@@ -71,13 +71,30 @@ def _start(name: str, env: dict[str, str]) -> None:
     except Exception as exc:
         _log.warning("stale PID check failed for %s - %s", name, exc)
 
-    # ── Port conflict resolution ────────────────────────────
+    # ── Port conflict resolution ─────────────────────────────────────────────────
     try:
-        r = subprocess.run(["lsof", "-ti", f":{port}"], capture_output=True, text=True, timeout=5)
+        r = subprocess.run(
+            ["lsof", "-tiTCP", f":{port}", "-sTCP:LISTEN"],
+            capture_output=True, text=True, timeout=5,
+        )
         if r.stdout.strip():
-            pid = r.stdout.strip()
-            _log.warning("port %s in use by PID %s - killing it", port, pid)
-            _kill(pid)
+            for pid in r.stdout.strip().split("\n"):
+                pid = pid.strip()
+                if not pid:
+                    continue
+                try:
+                    r2 = subprocess.run(
+                        ["ps", "-p", pid, "-o", "comm="],
+                        capture_output=True, text=True, timeout=3,
+                    )
+                    if "aphrodite" in r2.stdout:
+                        _log.warning("port %s in use by aphrodite PID %s - killing it", port, pid)
+                        _kill(pid)
+                    else:
+                        _log.warning("port %s held by non-aphrodite process %s (%s) - keeping alive",
+                                     port, pid, r2.stdout.strip()[:40])
+                except Exception:
+                    _kill(pid)  # can't verify - kill as safety fallback
     except FileNotFoundError:
         _log.warning("lsof not available - skipping port conflict check")
     except Exception as exc:
@@ -89,7 +106,11 @@ def _start(name: str, env: dict[str, str]) -> None:
         raise ValueError("APHRODITE_API_KEY not set in env or .env - proxy can't authenticate")
     env["APHRODITE_API_KEY"] = key
     mode_flag = "cache" if name == "cache" else "token"
-    args = [BINARY, "--listen", f"127.0.0.1:{port}", "--mode", mode_flag, "--tool-relay"]
+    ccr_db = os.path.join(BINARY_DIR, f"ccr-{name}.db")
+    args = [
+        BINARY, "--listen", f"127.0.0.1:{port}", "--mode", mode_flag,
+        "--tool-relay", "--ccr-db-path", ccr_db,
+    ]
     _log.info("starting aphrodite %s on :%s", name, port)
 
     # ── Binary guard ──────────────────────────────────────
@@ -121,8 +142,13 @@ def _start(name: str, env: dict[str, str]) -> None:
 
 
 def _wait_alive(port: int, retries: int = 10, delay: float = 0.3) -> bool:
-    """Wait for proxy port to become alive, with retries."""
+    """Wait for proxy port to become alive, with retries.
+
+    Clears the cached result before each check so retries see fresh
+    proxy state rather than a stale ``False`` cached by ``_alive()``.
+    """
     for _ in range(retries):
+        _alive_cache.pop(port, None)
         if _alive(port):
             return True
         time.sleep(delay)
@@ -189,7 +215,7 @@ def on_start(**kw) -> str | None:
             port = PORTS[name]
             if _alive(port):
                 running_ver = _query_proxy_version(port)
-                if running_ver and BIN_VERSION in running_ver:
+                if running_ver and running_ver.strip("vV") == BIN_VERSION.strip("vV"):
                     _log.debug("proxy %s already running expected version %s", name, running_ver)
                     continue
                 _log.info(
@@ -201,14 +227,25 @@ def on_start(**kw) -> str | None:
                 # Kill stale proxy
                 try:
                     r = subprocess.run(
-                        ["lsof", "-ti", f":{port}"],
+                        ["lsof", "-tiTCP", f":{port}", "-sTCP:LISTEN"],
                         capture_output=True,
                         text=True,
                         timeout=5,
                     )
                     if r.stdout.strip():
                         for pid in r.stdout.strip().split("\n"):
-                            _kill(pid)
+                            pid = pid.strip()
+                            if not pid:
+                                continue
+                            try:
+                                r2 = subprocess.run(
+                                    ["ps", "-p", pid, "-o", "comm="],
+                                    capture_output=True, text=True, timeout=3,
+                                )
+                                if "aphrodite" in r2.stdout:
+                                    _kill(pid)
+                            except Exception:
+                                _kill(pid)
                 except Exception as exc:
                     _log.warning("kill stale proxy %s failed: %s", name, exc)
             start_futs[name] = pool.submit(_start, name, env)
