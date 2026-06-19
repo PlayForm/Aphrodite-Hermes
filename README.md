@@ -1,11 +1,11 @@
 # Aphrodite 💋 Hermes Plugin
 
-> **CCR compression plugin for Hermes Agent — sub‑ms tool output compression,
+> **CCR compression plugin for Hermes Agent - sub‑ms tool output compression,
 > 28‑type classifier, 12 tools, context engine.**
 
 Aphrodite intercepts tool output before it reaches the LLM and replaces it with
 compact, structured previews. The agent sees 15 tokens of metadata instead of
-500 tokens of raw text — and retrieves the full content only when it actually
+500 tokens of raw text - and retrieves the full content only when it actually
 needs it.
 
 [![plugin](https://img.shields.io/badge/plugin-v1.62.42-purple)](plugin.yaml)
@@ -16,11 +16,11 @@ needs it.
 
 ## Install ⚡
 
-> **You install THIS repo** — the standalone `Aphrodite-Hermes` plugin. Do NOT
+> **You install THIS repo** - the standalone `Aphrodite-Hermes` plugin. Do NOT
 > clone the monorepo
 > ([PlayForm/Aphrodite](https://github.com/PlayForm/Aphrodite)). The monorepo
 > contains the full Rust proxy source, docs, benchmarks, and builds. This repo
-> is `./plugins/aphrodite/` — the plugin that ships to users.
+> is `./plugins/aphrodite/` - the plugin that ships to users.
 
 ```bash
 # 1. Clone the standalone plugin repo
@@ -73,7 +73,7 @@ Aphrodite/                  ← monorepo (NOT what you install)
 This standalone repo is a **git submodule** inside the
 [PlayForm/Aphrodite](https://github.com/PlayForm/Aphrodite) monorepo at
 `./plugins/aphrodite/`. Changes you push here are pulled into the monorepo via
-`git submodule update --remote`. The monorepo tracks a specific commit pointer —
+`git submodule update --remote`. The monorepo tracks a specific commit pointer -
 whenever you push here, the monorepo must update its submodule ref to point at
 your new commit.
 
@@ -82,7 +82,7 @@ your new commit.
 ## Configuration 🔧
 
 Copy `aphrodite.toml.example` from the monorepo to
-`~/.hermes/aphrodite/aphrodite.toml` (or rely on the defaults — it works out of
+`~/.hermes/aphrodite/aphrodite.toml` (or rely on the defaults - it works out of
 the box with `APHRODITE_API_KEY`).
 
 ```toml
@@ -122,18 +122,18 @@ context_engine = true
 | `aphrodite_test`            | Smoke test suite (quick / full / pipeline) |
 | `aphrodite_catalog`         | Full CCR catalog with hashes, types, sizes |
 | `aphrodite_reclassify`      | Retroactive metadata enrichment            |
-| `aphrodite_prefetch`        | Background file read — markers instantly   |
+| `aphrodite_prefetch`        | Background file read - markers instantly   |
 | `aphrodite_prefetch_status` | Prefetch queue status                      |
 
 ---
 
 ## More 🔗
 
-- **[Monorepo](https://github.com/PlayForm/Aphrodite)** — full docs, benchmarks,
+- **[Monorepo](https://github.com/PlayForm/Aphrodite)** - full docs, benchmarks,
   Rust source
-- **[Hermes Agent](https://github.com/NousResearch/hermes-agent)** — the agent
+- **[Hermes Agent](https://github.com/NousResearch/hermes-agent)** - the agent
   framework
 
 ---
 
-_CC0‑1.0 — public domain. A PlayForm project._
+_CC0‑1.0 - public domain. A PlayForm project._
