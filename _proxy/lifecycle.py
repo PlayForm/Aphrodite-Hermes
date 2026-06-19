@@ -74,7 +74,7 @@ def _start(name: str, env: dict[str, str]) -> None:
     # ── Port conflict resolution ─────────────────────────────────────────────────
     try:
         r = subprocess.run(
-            ["lsof", "-tiTCP", f":{port}", "-sTCP:LISTEN"],
+            ["lsof", f"-tiTCP:{port}", "-sTCP:LISTEN"],
             capture_output=True, text=True, timeout=5,
         )
         if r.stdout.strip():
@@ -227,7 +227,7 @@ def on_start(**kw) -> str | None:
                 # Kill stale proxy
                 try:
                     r = subprocess.run(
-                        ["lsof", "-tiTCP", f":{port}", "-sTCP:LISTEN"],
+                        ["lsof", f"-tiTCP:{port}", "-sTCP:LISTEN"],
                         capture_output=True,
                         text=True,
                         timeout=5,
