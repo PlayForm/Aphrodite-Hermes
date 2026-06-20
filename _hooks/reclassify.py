@@ -37,6 +37,14 @@ RECLASSIFY_SCHEMA = {
 
 
 def _aphrodite_reclassify_handler(args=None, **kwargs):
+    # ── Delegate to Rust dylib ──
+    try:
+        from ..headroom_ffi import get_ffi
+        r = get_ffi().dispatch("reclassify", args or {})
+        return json.dumps(r)
+    except Exception:
+        pass
+    # ── Python path ──
     """Retroactively enrich all CCR entries with structured metadata.
 
     For each entry in _recent_markers that lacks a non-empty ``meta`` dict,

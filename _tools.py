@@ -20,6 +20,22 @@ _MAX_PATH_READ = 10_485_760  # 10MB cap
 
 
 def _retrieve_handler(args=None, **kwargs):
+    # ── Delegate to Rust dylib ──
+    try:
+        from ..headroom_ffi import get_ffi
+        ffi = get_ffi()
+        hash_val = (args or {}).get("hash", "")
+        if hash_val and ffi._lib:
+            content = ffi.retrieve(hash_val)
+            if content:
+                query = (args or {}).get("query", "")
+                if query:
+                    from .._resolve import _filter_lines
+                    content = _filter_lines(content, query)
+                return content
+    except Exception:
+        pass
+    # ── Python path ──
     """Resolve CCR markers with recursive depth. Scans for nested markers."""
     args = args if isinstance(args, dict) else {}
     hash_val = args.get("hash", "").strip()
@@ -67,6 +83,19 @@ def _retrieve_handler(args=None, **kwargs):
 
 
 def _compress_handler(args=None, **kwargs):
+    # ── Delegate to Rust dylib ──
+    try:
+        from ..headroom_ffi import get_ffi
+        ffi = get_ffi()
+        content = (args or {}).get("content", "")
+        hint = (args or {}).get("type", "")
+        if content and ffi._lib:
+            r = ffi.compress(content, hint)
+            if r.get("hash"):
+                return json.dumps(r)
+    except Exception:
+        pass
+    # ── Python path ──
     """Compress content into CCR via aphrodite proxy. Content-addressable:
     checks local cache first, only hits proxy on miss."""
     args = args if isinstance(args, dict) else {}

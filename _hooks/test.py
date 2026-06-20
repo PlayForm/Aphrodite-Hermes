@@ -23,6 +23,14 @@ _log = logging.getLogger("aphrodite.hooks.test")
 
 
 def _test_handler(args=None, **kwargs):
+    # ── Delegate to Rust dylib ──
+    try:
+        from ..headroom_ffi import get_ffi
+        r = get_ffi().dispatch("test", args or {})
+        return json.dumps(r)
+    except Exception:
+        pass
+    # ── Python path ──
     """Full smoke test suite - exercises all tools, hooks, compression, search, retrieve."""
     from .._tools import _compress_handler, _retrieve_handler
 

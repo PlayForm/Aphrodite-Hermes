@@ -38,6 +38,14 @@ def _find_cargo_toml():
 
 
 def _rebuild_handler(args=None, **kwargs):
+    # ── Delegate to Rust dylib ──
+    try:
+        from ..headroom_ffi import get_ffi
+        r = get_ffi().dispatch("rebuild", args or {})
+        return json.dumps(r)
+    except Exception:
+        pass
+    # ── Python path ──
     """Rebuild or re-download aphrodite binary."""
     repo = _find_cargo_toml()
 
