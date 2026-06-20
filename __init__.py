@@ -112,7 +112,7 @@ from ._tools import COMPRESS_SCHEMA, RETRIEVE_SCHEMA, _compress_handler, _retrie
 _log = logging.getLogger("aphrodite")
 
 # Sync docstring version
-__doc__ = (__doc__ or "").replace("v1.62.58", f"v{PLUGIN_VERSION}")
+__doc__ = (__doc__ or "").replace("v1.62.61", f"v{PLUGIN_VERSION}")
 
 
 # ── Plugin registration ────────────────────────────────
