@@ -140,6 +140,17 @@ def _extract_tool_metadata(tool_name, args, result):
 
 
 def _transform_tool_result(tool_name="", args=None, result="", **kwargs):
+    # ── Delegate to Rust dylib if available (zero-friction hot-reload) ──
+    try:
+        from ..headroom_ffi import get_ffi
+        ffi = get_ffi()
+        if ffi._lib is not None:
+            r = ffi.transform(result, tool_name)
+            if r.get("compressed"):
+                return r.get("marker", result)
+    except Exception:
+        pass  # dylib not available — fall through to Python path
+    # ── Python path ────────────────────────────────────────────────
     _t0 = time.time()
     if not result or not isinstance(result, str) or not result.strip():
         return result

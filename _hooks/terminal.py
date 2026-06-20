@@ -29,6 +29,17 @@ _log = logging.getLogger("aphrodite.hooks.terminal")
 
 
 def _transform_terminal_hook(command="", output="", returncode=0, **kwargs):
+    # ── Delegate to Rust dylib if available ──
+    try:
+        from ..headroom_ffi import get_ffi
+        ffi = get_ffi()
+        if ffi._lib is not None and output:
+            r = ffi.terminal(output)
+            if r.get("compressed"):
+                return r.get("marker", output)
+    except Exception:
+        pass  # dylib not available — fall through to Python path
+    # ── Python path ────────────────────────────────────────────────
     """Compress terminal output via CCR on-the-fly. Proxy first, inline fallback.
     Build output gets smart summarization - repeated patterns collapsed."""
     _t0 = time.time()
