@@ -190,6 +190,11 @@ def on_start(**kw) -> str | None:
     """Hermes session_start hook - ensure binary + launch proxy + auto-setup."""
     from .._binary import _ensure_binary
 
+    # Skip auto-launch for cargo watch / dev mode (binary already running)
+    if os.environ.get("APHRODITE_NO_AUTO_LAUNCH", "").strip() in ("1", "true", "yes"):
+        _log.info("APHRODITE_NO_AUTO_LAUNCH set — skipping proxy auto-launch")
+        return None
+
     if not _ensure_binary():
         _log.error("cannot start - binary not available")
         return None
