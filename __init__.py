@@ -1,4 +1,4 @@
-"""aphrodite v1.62.56 — CCR compression plugin for Hermes Agent.
+"""aphrodite v1.62.58 — CCR compression plugin for Hermes Agent.
 
 Thin Python loader — all compression logic lives in the Rust dylib
 (libaphrodite.dylib). This file only handles:
@@ -71,7 +71,7 @@ from ._core.struct import _CODE_PATTERNS, _extract_code_structure
 _log = logging.getLogger("aphrodite")
 
 # Sync docstring version
-__doc__ = (__doc__ or "").replace("v1.62.56", f"v{PLUGIN_VERSION}")
+__doc__ = (__doc__ or "").replace("v1.62.58", f"v{PLUGIN_VERSION}")
 
 
 # ── Plugin registration ────────────────────────────────
