@@ -30,7 +30,16 @@ class HeadroomFFI:
         self._dylib_path = str(dylib_path) if dylib_path else None
         self._dylib_mtime: float = 0.0
         self._lib: ctypes.CDLL | None = None
+        self._handle: bytes = b"0"  # default handle
         self._load()
+        # Create a stateful handle for session-scoped operations
+        if self._lib:
+            try:
+                ptr = self._lib.aphrodite_init(b"")
+                self._handle = ctypes.cast(ptr, ctypes.c_char_p).value
+                self._lib.aphrodite_free_string(ptr)
+            except Exception:
+                pass
 
     # ── Public API ────────────────────────────────────
 
@@ -40,11 +49,11 @@ class HeadroomFFI:
 
     def compress(self, content: str, type_hint: str = "") -> dict:
         self._maybe_reload()
-        return self._call2(self._lib.aphrodite_compress, content, type_hint)
+        return self._call3(self._lib.aphrodite_compress, content, type_hint)
 
     def retrieve(self, hash_val: str) -> str:
         self._maybe_reload()
-        ptr = self._lib.aphrodite_retrieve(hash_val.encode("utf-8"))
+        ptr = self._lib.aphrodite_retrieve(self._handle, hash_val.encode("utf-8"))
         result = self._read_string(ptr)
         self._lib.aphrodite_free_string(ptr)
         if result.startswith("{"):
@@ -65,21 +74,21 @@ class HeadroomFFI:
 
     def session_start(self) -> dict:
         self._maybe_reload()
-        ptr = self._lib.aphrodite_session_start(b"0")
+        ptr = self._lib.aphrodite_session_start(self._handle)
         result = self._read_string(ptr)
         self._lib.aphrodite_free_string(ptr)
         return json.loads(result)
 
     def stats(self) -> dict:
         self._maybe_reload()
-        ptr = self._lib.aphrodite_stats(b"0")
+        ptr = self._lib.aphrodite_stats(self._handle)
         result = self._read_string(ptr)
         self._lib.aphrodite_free_string(ptr)
         return json.loads(result)
 
     def catalog(self, mode: str = "full") -> dict:
         self._maybe_reload()
-        ptr = self._lib.aphrodite_catalog(b"0", mode.encode("utf-8"))
+        ptr = self._lib.aphrodite_catalog(self._handle, mode.encode("utf-8"))
         result = self._read_string(ptr)
         self._lib.aphrodite_free_string(ptr)
         return json.loads(result)
@@ -87,7 +96,7 @@ class HeadroomFFI:
     def transform(self, content: str, tool_name: str) -> dict:
         self._maybe_reload()
         ptr = self._lib.aphrodite_transform(
-            b"0", content.encode("utf-8"), tool_name.encode("utf-8")
+            self._handle, content.encode("utf-8"), tool_name.encode("utf-8")
         )
         result = self._read_string(ptr)
         self._lib.aphrodite_free_string(ptr)
@@ -95,7 +104,7 @@ class HeadroomFFI:
 
     def terminal(self, content: str) -> dict:
         self._maybe_reload()
-        ptr = self._lib.aphrodite_terminal(b"0", content.encode("utf-8"))
+        ptr = self._lib.aphrodite_terminal(self._handle, content.encode("utf-8"))
         result = self._read_string(ptr)
         self._lib.aphrodite_free_string(ptr)
         return json.loads(result)
@@ -226,6 +235,13 @@ class HeadroomFFI:
         self._lib.aphrodite_free_string(ptr)
         return json.loads(result)
 
+    def _call3(self, fn, a: str, b: str) -> dict:
+        """Stateful call: (handle, a, b) → JSON."""
+        ptr = fn(self._handle, a.encode("utf-8"), b.encode("utf-8"))
+        result = self._read_string(ptr)
+        self._lib.aphrodite_free_string(ptr)
+        return json.loads(result)
+
     @staticmethod
     def _read_string(ptr) -> str:
         if ptr:
@@ -234,21 +250,29 @@ class HeadroomFFI:
 
     @staticmethod
     def _find_dylib() -> Path:
-        """Find the aphrodite dylib in build output or install location."""
+        """Find the aphrodite dylib — prefer newer build (dev or release)."""
         candidates = [
+            # Cargo debug build (dev / cargo watch)
+            Path("target/debug/libaphrodite.dylib"),
+            Path("target/debug/libaphrodite.so"),
             # Cargo release build
             Path("target/release/libaphrodite.dylib"),
             Path("target/release/libaphrodite.so"),
-            # Cargo debug build
-            Path("target/debug/libaphrodite.dylib"),
-            Path("target/debug/libaphrodite.so"),
             # Installed location
             Path.home() / ".hermes" / "aphrodite" / "libaphrodite.dylib",
             Path.home() / ".hermes" / "aphrodite" / "libaphrodite.so",
         ]
+        # Find newest existing dylib
+        newest = None
+        newest_mtime = 0.0
         for p in candidates:
             if p.exists():
-                return p.resolve()
+                mtime = os.path.getmtime(p)
+                if mtime > newest_mtime:
+                    newest = p.resolve()
+                    newest_mtime = mtime
+        if newest:
+            return newest
         raise FileNotFoundError(
             "libaphrodite.dylib not found. Build with: cargo build -p aphrodite"
         )
