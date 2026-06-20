@@ -142,6 +142,36 @@ class HeadroomFFI:
         self._lib.aphrodite_free_string(ptr)
         return json.loads(result)
 
+    def filter_lines(self, content: str, query: str) -> str:
+        """Filter content lines by query via Rust resolve.rs."""
+        self._maybe_reload()
+        ptr = self._lib.aphrodite_filter_lines(
+            content.encode("utf-8"), query.encode("utf-8")
+        )
+        result = self._read_string(ptr)
+        self._lib.aphrodite_free_string(ptr)
+        return result
+
+    def resolve(self, hash_val: str) -> dict:
+        """Full recursive CCR resolution via Rust resolve.rs."""
+        self._maybe_reload()
+        ptr = self._lib.aphrodite_resolve(
+            self._handle, hash_val.encode("utf-8")
+        )
+        result = self._read_string(ptr)
+        self._lib.aphrodite_free_string(ptr)
+        return json.loads(result)
+
+    def preview(self, content: str, ccr_type: str = "text") -> str:
+        """Generate preview via Rust build_preview()."""
+        self._maybe_reload()
+        ptr = self._lib.aphrodite_preview(
+            content.encode("utf-8"), ccr_type.encode("utf-8")
+        )
+        result = self._read_string(ptr)
+        self._lib.aphrodite_free_string(ptr)
+        return result
+
     @property
     def version(self) -> str:
         self._maybe_reload()
@@ -265,6 +295,18 @@ class HeadroomFFI:
         # Code structure extraction
         lib.aphrodite_struct_extract.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
         lib.aphrodite_struct_extract.restype = ctypes.c_void_p
+
+        # Filter lines
+        lib.aphrodite_filter_lines.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+        lib.aphrodite_filter_lines.restype = ctypes.c_void_p
+
+        # Full resolve
+        lib.aphrodite_resolve.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+        lib.aphrodite_resolve.restype = ctypes.c_void_p
+
+        # Preview generation
+        lib.aphrodite_preview.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+        lib.aphrodite_preview.restype = ctypes.c_void_p
 
     # ── Internals ─────────────────────────────────────
 
