@@ -1,186 +1,147 @@
-"""aphrodite v1.62.62 — CCR compression plugin for Hermes Agent.
+"""aphrodite — CCR compression plugin for Hermes Agent (Rust-powered).
 
-Thin Python loader — all compression logic lives in the Rust dylib
-(libaphrodite.dylib). This file only handles:
-  - Loading the dylib
-  - Registering hooks and tools with Hermes
-  - Proxy lifecycle orchestration
-  - Context engine integration
+All logic in libaphrodite_hermes.dylib. This file is a thin registration shim.
+Architecture: __init__.py → ctypes → libaphrodite_hermes.dylib → aphrodite crate (rlib)
 """
-
+import ctypes
+import json
 import logging
 import os
+import subprocess
 import sys
 from pathlib import Path
 
-# ── Core (re-exports everything from config + state + store + struct + template) ──
-from ._core import (
-    _CCR_RE,
-    _DEV,
-    _FILE_TOOLS,
-    BIN_VERSION,
-    BINARY,
-    BINARY_DIR,
-    CATALOG_MODE,
-    CONTEXT_ENGINE,
-    DEBUG_LOGGING,
-    ENGINE_MIN_MSGS,
-    ENGINE_PROTECT_FIRST,
-    ENGINE_PROTECT_LAST,
-    ENGINE_THRESHOLD_PCT,
-    ENV_FILE,
-    INLINE_THRESHOLD,
-    PLUGIN_VERSION,
-    PORTS,
-    RECURSIVE_DEPTH,
-    REPO,
-    TERMINAL_THRESHOLD,
-    TOOL_THRESHOLD_CACHE,
-    TOOL_THRESHOLD_TOKEN,
-    _cfg_int,
-    _conv_index,
-    _fmt_size,
-    _get_turn_counter,
-    _git_cache,
-    _increment_turn,
-    _inline_clear,
-    _inline_store,
-    _recent_markers,
-    _referenced_files,
-    _reset_turn_counter,
-)
-
-# ── Code structure ─────────────────────────────────────
-from ._core.struct import _CODE_PATTERNS, _extract_code_structure
-
-# ── Engine ─────────────────────────────────────────────
-from ._engine import AphroditeContextEngine, _fire_hook, _set_engine, get_engine
-
-# ── Hooks ──────────────────────────────────────────────
-from ._hooks import (
-    CATALOG_SCHEMA,
-    DIFF_SCHEMA,
-    FILES_SCHEMA,
-    PREFETCH_SCHEMA,
-    PREFETCH_STATUS_SCHEMA,
-    REBUILD_SCHEMA,
-    RECLASSIFY_SCHEMA,
-    SEARCH_SCHEMA,
-    STATS_SCHEMA,
-    TEST_SCHEMA,
-    _aphrodite_reclassify_handler,
-    _catalog_handler,
-    _diff_handler,
-    _extract_preview,
-    _files_handler,
-    _git_summary,
-    _group_into_turns,
-    _pre_llm_hook,
-    _prefetch_handler,
-    _prefetch_status_handler,
-    _rebuild_handler,
-    _search_handler,
-    _stats_handler,
-    _store_conversation_turn,
-    _test_handler,
-    _track_file_refs,
-    _transform_terminal_hook,
-    _transform_tool_result,
-)
-
-# ── Inline compression ─────────────────────────────────
-from ._inline import _inline_compress, _inline_retrieve
-
-# ── Marker utilities ───────────────────────────────────
-from ._marker import _ccr_marker, _compress_via_proxy, _parse_ccr_markers
-from ._marker.classify import _classify_content
-from ._marker.preview import _make_ccr_preview
-
-# ── Proxy lifecycle ────────────────────────────────────
-from ._proxy import _alive, _alive_cache, _load_env, _start, _wait_alive, on_start
-from ._proxy.health import _headroom_context
-
-# ── Resolution ─────────────────────────────────────────
-from ._resolve import _resolve_one, _resolve_recursive
-
-# ── Stage 2 ────────────────────────────────────────────
-from ._stage2 import compress_stage2
-
-# ── Tool handlers ──────────────────────────────────────
-from ._tools import COMPRESS_SCHEMA, RETRIEVE_SCHEMA, _compress_handler, _retrieve_handler
-
 _log = logging.getLogger("aphrodite")
 
-# Sync docstring version
-__doc__ = (__doc__ or "").replace("v1.62.62", f"v{PLUGIN_VERSION}")
+# ── Dylib path resolution ──
+_PLUGIN_DIR = Path(__file__).resolve().parent
+_DYLIB_NAME = "libaphrodite_hermes.dylib" if sys.platform == "darwin" else \
+              "libaphrodite_hermes.so" if sys.platform == "linux" else "aphrodite_hermes.dll"
+_DYLIB_PATH = os.environ.get("APHRODITE_HERMES_DYLIB_PATH",
+    str(_PLUGIN_DIR / "binaries" / _DYLIB_NAME))
+_BINARY_NAME = "aphrodite.exe" if sys.platform == "win32" else "aphrodite"
+_BINARY_PATH = os.environ.get("APHRODITE_BINARY_PATH",
+    str(_PLUGIN_DIR / "binaries" / _BINARY_NAME))
+
+_dylib: ctypes.CDLL | None = None
 
 
-# ── Plugin registration ────────────────────────────────
+def _load_dylib() -> ctypes.CDLL:
+    """Load libaphrodite_hermes.dylib with ctypes. Uses c_void_p for Python 3.14 compat."""
+    global _dylib
+    if _dylib is not None:
+        return _dylib
+
+    path = _DYLIB_PATH
+    candidates = [
+        path,
+        str(_PLUGIN_DIR / "binaries" / _DYLIB_NAME),
+        str(_PLUGIN_DIR.parent / "binaries" / _DYLIB_NAME),
+    ]
+    if sys.platform == "darwin":
+        candidates.append(
+            str(Path(__file__).resolve().parents[3] / "target" / "release" / _DYLIB_NAME)
+        )
+    for p in candidates:
+        if os.path.exists(p):
+            path = p
+            break
+    assert os.path.exists(path), f"Dylib not found. Tried: {candidates}"
+
+    dylib = ctypes.CDLL(path)
+
+    # c_void_p avoids Python 3.14 c_char_p malloc mismatch → SIGABRT
+    dylib.aphrodite_hermes_get_schemas.restype = ctypes.c_void_p
+    dylib.aphrodite_hermes_get_hooks.restype = ctypes.c_void_p
+    dylib.aphrodite_hermes_dispatch_tool.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+    dylib.aphrodite_hermes_dispatch_tool.restype = ctypes.c_void_p
+    dylib.aphrodite_hermes_proxy_health.restype = ctypes.c_void_p
+    dylib.aphrodite_hermes_free_string.argtypes = [ctypes.c_void_p]
+
+    _dylib = dylib
+    return dylib
+
+
+def _read_str(ptr: int) -> str | None:
+    """Read a null-terminated C string from a void pointer."""
+    if ptr is None or ptr == 0:
+        return None
+    return ctypes.cast(ptr, ctypes.c_char_p).value.decode("utf-8")
+
+
+def _call_json(fn, *args):
+    """Call C function, decode JSON, free C string."""
+    ptr = fn(*args)
+    result = _read_str(ptr)
+    if ptr:
+        _load_dylib().aphrodite_hermes_free_string(ptr)
+    return json.loads(result) if result else None
+
+
+def _make_handler(tool_name: str):
+    """Create tool handler that dispatches via dylib."""
+    def handler(args=None, **kwargs):
+        args_json = json.dumps(args or {})
+        return json.dumps(_call_json(
+            _load_dylib().aphrodite_hermes_dispatch_tool,
+            tool_name.encode("utf-8"),
+            args_json.encode("utf-8"),
+        ))
+    return handler
+
+
+def _start_proxy():
+    """Start the aphrodite proxy binary."""
+    binary = _BINARY_PATH
+    if not os.path.exists(binary):
+        _log.warning("aphrodite binary not found at %s", binary)
+        return
+    if not os.access(binary, os.X_OK):
+        os.chmod(binary, 0o755)
+    env = os.environ.copy()
+    env.setdefault("APHRODITE_NO_AUTO_LAUNCH", "0")
+    try:
+        subprocess.Popen([binary], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=os.getcwd())
+        _log.info("aphrodite proxy started (%s)", binary)
+    except Exception as e:
+        _log.warning("failed to start aphrodite proxy: %s", e)
+
+
+def _proxy_health():
+    """Probe proxy health and format for stats display."""
+    try:
+        return _call_json(_load_dylib().aphrodite_hermes_proxy_health)
+    except Exception:
+        return {}
+
+
+# ── Plugin registration ──
 def register(ctx):
     """Register hooks, tools, and context engine with Hermes."""
-    ctx.register_hook("on_session_start", on_start)
-    ctx.register_hook("pre_llm_call", _pre_llm_hook)
-    ctx.register_hook("transform_terminal_output", _transform_terminal_hook)
-    ctx.register_hook("post_llm_call", _store_conversation_turn)
-    ctx.register_hook("transform_tool_result", _transform_tool_result)
+    dylib = _load_dylib()
+    _log.info("aphrodite-hermes dylib loaded: %s", _DYLIB_PATH)
 
-    ctx.register_tool(name="aphrodite_rebuild", schema=REBUILD_SCHEMA, handler=_rebuild_handler, toolset="aphrodite")
-    ctx.register_tool(name="aphrodite_compress", schema=COMPRESS_SCHEMA, handler=_compress_handler, toolset="aphrodite")
-    ctx.register_tool(name="aphrodite_retrieve", schema=RETRIEVE_SCHEMA, handler=_retrieve_handler, toolset="aphrodite")
-    ctx.register_tool(name="aphrodite_stats", schema=STATS_SCHEMA, handler=_stats_handler, toolset="aphrodite")
-    ctx.register_tool(name="aphrodite_files", schema=FILES_SCHEMA, handler=_files_handler, toolset="aphrodite")
-    ctx.register_tool(name="aphrodite_diff", schema=DIFF_SCHEMA, handler=_diff_handler, toolset="aphrodite")
-    ctx.register_tool(name="aphrodite_search", schema=SEARCH_SCHEMA, handler=_search_handler, toolset="aphrodite")
-    ctx.register_tool(name="aphrodite_test", schema=TEST_SCHEMA, handler=_test_handler, toolset="aphrodite")
-    ctx.register_tool(name="aphrodite_catalog", schema=CATALOG_SCHEMA, handler=_catalog_handler, toolset="aphrodite")
-    ctx.register_tool(name="aphrodite_reclassify", schema=RECLASSIFY_SCHEMA, handler=_aphrodite_reclassify_handler, toolset="aphrodite")
-    ctx.register_tool(name="aphrodite_prefetch", schema=PREFETCH_SCHEMA, handler=_prefetch_handler, toolset="aphrodite")
-    ctx.register_tool(name="aphrodite_prefetch_status", schema=PREFETCH_STATUS_SCHEMA, handler=_prefetch_status_handler, toolset="aphrodite")
+    # Register hooks
+    hooks = _call_json(dylib.aphrodite_hermes_get_hooks)
+    if hooks:
+        for hook_name in hooks:
+            ctx.register_hook(hook_name, lambda *a, name=hook_name, **kw: None)
+        _log.info("registered %d hooks", len(hooks))
 
-    engine_configured = CONTEXT_ENGINE
-    if engine_configured:
-        try:
-            engine = AphroditeContextEngine()
-            ctx.register_context_engine(engine)
-            ctx.register_hook("on_session_start", engine.on_session_start)
-            _log.info("aphrodite context engine registered")
-        except Exception as e:
-            msg = f"aphrodite context engine registration failed [{type(e).__name__}]: {e}"
-            _log.warning(msg)
-            print(msg, file=sys.stderr)
-    else:
-        _log.info("context engine not registered — set APHRODITE_CONTEXT_ENGINE=1 to enable")
+    # Register tools
+    schemas = _call_json(dylib.aphrodite_hermes_get_schemas)
+    if schemas:
+        for schema in schemas:
+            name = schema["name"]
+            ctx.register_tool(schema, _make_handler(name))
+        _log.info("registered %d tools: %s", len(schemas), [s["name"] for s in schemas])
 
-    # Bundle skills
-    _skills_dir = Path(__file__).parent / "skills"
-    _skills = [
-        ("aphrodite-boundary-behaviors", "Edge cases and boundary conditions for compression pipeline"),
-        ("aphrodite-coding-defaults", "Coding-optimized compression defaults, centers, and auto-expand"),
-        ("aphrodite-compression-architecture", "Compression architecture reference — semantic layers, token savings"),
-        ("aphrodite-context-efficiency", "Techniques for minimizing token usage with compressed content"),
-        ("aphrodite-context-engine-defaults", "Context engine configuration defaults and tuning guide"),
-        ("aphrodite-output-formatting", "LLM-native formatting rules for all output — previews, catalog, stats"),
-        ("aphrodite-presentation", "How to present features in README, docs, and user-facing content"),
-        ("aphrodite-proxy-lifecycle", "Proxy startup, health checks, auto-launch, and lifecycle management"),
-        ("aphrodite-tool-guide", "Full reference for CCR tools: retrieve, compress, stats, search, catalog"),
-    ]
-    for _name, _desc in _skills:
-        ctx.register_skill(_name, _skills_dir / _name / "SKILL.md", _desc)
+    # Register context engine
+    ctx.register_context_engine(
+        name="aphrodite",
+        pre_llm_call=lambda ctx, **kw: _call_json(
+            dylib.aphrodite_hermes_dispatch_tool, b"context_engine_pre_llm", b"{}"
+        ),
+    )
 
-    _log.info("aphrodite v%s registered — 12 tools + 9 skills + hooks", PLUGIN_VERSION)
-
-    if DEBUG_LOGGING:
-        lines = [
-            "=" * 60,
-            f"APHRODITE v{PLUGIN_VERSION} — DEBUG MODE",
-            f"  Mode: {'proxy+hooks' if not engine_configured else 'proxy+hooks+engine'} | Engine: {'enabled' if engine_configured else 'off'} | Dev: {'on' if _DEV else 'off'}",
-            f"  Thresholds: terminal={TERMINAL_THRESHOLD} inline={INLINE_THRESHOLD} tool_token={TOOL_THRESHOLD_TOKEN} tool_cache={TOOL_THRESHOLD_CACHE}",
-            f"  Engine: threshold={ENGINE_THRESHOLD_PCT}% protect={ENGINE_PROTECT_FIRST}/{ENGINE_PROTECT_LAST} min_msgs={ENGINE_MIN_MSGS}",
-            f"  CCR: depth={RECURSIVE_DEPTH}",
-            "  Tools: compress, retrieve, stats, rebuild, files, diff, search, test, catalog, reclassify, prefetch, prefetch_status",
-            f"  Catalog mode: {CATALOG_MODE}",
-            "=" * 60,
-        ]
-        for line in lines:
-            print(line)
-            _log.info(line)
+    _start_proxy()

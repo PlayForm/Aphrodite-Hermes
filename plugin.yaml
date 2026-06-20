@@ -27,9 +27,9 @@ provides_context_engine: true
 # Engine threshold: -1=always compress, 0=disabled, >0=fill%
 # Ships 9 skills: compression architecture, proxy lifecycle, tool guide, context engine, coding defaults, context efficiency, boundary behaviors, output formatting, presentation
 install_message: |
-  aphrodite v1.62.62  -  CCR compression plugin for Hermes Agent.
+  aphrodite v1.62.62 — CCR compression plugin for Hermes Agent (Rust-powered).
+  All logic in libaphrodite.dylib — __init__.py is a thin registration shim.
   Proxies: token (:9798, SQLite, >1KB), cache (:9797, in-memory, >8KB).
   Engine: context_engine=true in aphrodite.toml (default-on).
-  Debug: APHRODITE_DEBUG=1 hermes ...
-  Catalog: APHRODITE_CATALOG=full|compact|tool (default: compact)
+  Download: bash download.sh (fetches prebuilt binary from GitHub Releases).
   Tools: retrieve, compress, stats, rebuild, files, diff, search, test, catalog, reclassify, prefetch, prefetch_status
