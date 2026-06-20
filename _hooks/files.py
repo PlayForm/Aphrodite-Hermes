@@ -47,6 +47,14 @@ def _track_file_refs(tool_name, args):
 
 
 def _files_handler(args=None, **kwargs):
+    # ── Delegate to Rust dylib ──
+    try:
+        from ..headroom_ffi import get_ffi
+        r = get_ffi().dispatch("files", {})
+        return json.dumps(r)
+    except Exception:
+        pass
+    # ── Python path ──
     """List all files referenced in the current session."""
     if not _referenced_files:
         return json.dumps({"files": [], "count": 0, "hint": "No file operations yet"})

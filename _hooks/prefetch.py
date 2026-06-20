@@ -24,6 +24,17 @@ _prefetch_registry: dict = {}  # {path: {status, eta_s, hash, size, error}}
 
 
 def _prefetch_handler(args=None, **kwargs):
+    # ── Delegate to Rust dylib ──
+    try:
+        from ..headroom_ffi import get_ffi
+        paths = (args or {}).get("paths", [])
+        if isinstance(paths, str):
+            paths = [paths]
+        r = get_ffi().dispatch("prefetch", {"paths": paths})
+        return json.dumps(r)
+    except Exception:
+        pass
+    # ── Python path ──
     """Background file read + compress - returns CCR markers instantly."""
     args = args if isinstance(args, dict) else {}
     paths_raw = args.get("paths", args.get("path", ""))

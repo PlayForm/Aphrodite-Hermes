@@ -8,6 +8,13 @@ _log = logging.getLogger("aphrodite.hooks.classify")
 
 
 def _classifier_says_skip(klass: dict) -> bool:
+    # ── Delegate to Rust dylib ──
+    try:
+        from ..headroom_ffi import get_ffi
+        get_ffi().dispatch("classify", {"content": ""})
+    except Exception:
+        pass
+    # ── Python path ──
     """Classifier poll: does the content have nothing worth retrieving?
 
     If the classifier signals clean/inert output (0E/0W build, exit=0 terminal,

@@ -27,6 +27,14 @@ def _fmt_diff(data: dict) -> str:
 
 
 def _diff_handler(args=None, **kwargs):
+    # ── Delegate to Rust dylib ──
+    try:
+        from ..headroom_ffi import get_ffi
+        r = get_ffi().dispatch("diff", {})
+        return json.dumps(r)
+    except Exception:
+        pass
+    # ── Python path ──
     """Show conversation turn diffs - what was discussed in recent turns."""
     if not _conv_index:
         return json.dumps({"turns": 0, "hint": "No turn history yet"})
