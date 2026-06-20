@@ -60,6 +60,17 @@ def _fmt_catalog(data: dict) -> str:
 
 
 def _catalog_handler(args=None, **kwargs):
+    # ── Delegate to Rust dylib ──
+    try:
+        from ..headroom_ffi import get_ffi
+        ffi = get_ffi()
+        if ffi._lib:
+            mode = (args or {}).get("mode", "full")
+            r = ffi.dispatch("catalog", {"mode": mode})
+            return json.dumps(r)
+    except Exception:
+        pass
+    # ── Python path ──
     args = args if isinstance(args, dict) else {}
     if args.get("mode") == "toc":
         return _build_toc()

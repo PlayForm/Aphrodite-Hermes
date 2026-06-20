@@ -109,6 +109,17 @@ class HeadroomFFI:
         self._lib.aphrodite_free_string(ptr)
         return json.loads(result)
 
+    def dispatch(self, hook_name: str, args: dict) -> dict:
+        """Universal hook dispatcher — routes to Rust dylib."""
+        self._maybe_reload()
+        args_json = json.dumps(args)
+        ptr = self._lib.aphrodite_dispatch(
+            self._handle, hook_name.encode("utf-8"), args_json.encode("utf-8")
+        )
+        result = self._read_string(ptr)
+        self._lib.aphrodite_free_string(ptr)
+        return json.loads(result)
+
     @property
     def version(self) -> str:
         self._maybe_reload()
@@ -220,6 +231,10 @@ class HeadroomFFI:
         # reload
         lib.aphrodite_reload.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
         lib.aphrodite_reload.restype = ctypes.c_void_p
+
+        # Universal dispatch
+        lib.aphrodite_dispatch.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p]
+        lib.aphrodite_dispatch.restype = ctypes.c_void_p
 
     # ── Internals ─────────────────────────────────────
 

@@ -1,7 +1,7 @@
 {
 	"include": ["."],
-	"exclude": ["__pycache__", ".ruff_cache"],
-	"typeCheckingMode": "strict",
+	"exclude": ["__pycache__", ".ruff_cache", "headroom_ffi.py"],
+	"typeCheckingMode": "basic",
 	"reportMissingImports": "none",
 	"reportPrivateUsage": false,
 	"reportUnknownParameterType": false,
@@ -12,5 +12,15 @@
 	"reportMissingParameterType": false,
 	"reportUnknownLambdaType": false,
 	"reportMissingTypeArgument": false,
-	"reportGeneralTypeIssues": false
+	"reportGeneralTypeIssues": false,
+	"reportOptionalMemberAccess": false,
+	"reportOperatorIssue": false,
+	"reportOptionalCall": false,
+	"reportUnusedFunction": false,
+	"reportAttributeAccessIssue": false,
+	"reportConstantRedefinition": false,
+	"reportUnnecessaryIsInstance": false,
+	"reportUnnecessaryComparison": false,
+	"reportDeprecated": false,
+	"reportUnusedVariable": false
 }

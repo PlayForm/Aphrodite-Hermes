@@ -52,6 +52,14 @@ def _fmt_stats(data: dict) -> str:
 
 
 def _stats_handler(args=None, **kwargs):
+    # ── Delegate to Rust dylib ──
+    try:
+        from ..headroom_ffi import get_ffi
+        r = get_ffi().dispatch("stats", {})
+        return json.dumps(r)
+    except Exception:
+        pass
+    # ── Python path ──
     """Return proxy health, CCR stats, engine status, inline store size."""
     result = {
         "proxy": {},

@@ -59,6 +59,13 @@ def _inject_session_instruction(conversation_history):
 
 
 def _store_conversation_turn(conversation_history=None, assistant_response=None, turn_id=0, **kwargs):
+    # ── Delegate to Rust dylib ──
+    try:
+        from ..headroom_ffi import get_ffi
+        get_ffi().dispatch("post_llm_call", {})
+    except Exception:
+        pass
+    # ── Python path ──
     if not conversation_history or assistant_response is None or _DEV:
         return
     token_alive = _alive(PORTS["token"])
@@ -93,6 +100,15 @@ def _store_conversation_turn(conversation_history=None, assistant_response=None,
 
 
 def _pre_llm_hook(conversation_history=None, user_message=None, **kwargs):
+    # ── Delegate to Rust dylib ──
+    try:
+        from ..headroom_ffi import get_ffi
+        r = get_ffi().dispatch("pre_llm_call", {})
+        if r.get("catalog"):
+            return r["catalog"]
+    except Exception:
+        pass
+    # ── Python path ──
     if _DEV or not conversation_history or not isinstance(conversation_history, list):
         return
     quiet_mode = os.environ.get("QUIET", "") == "1"

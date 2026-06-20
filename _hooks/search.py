@@ -16,6 +16,14 @@ _log = logging.getLogger("aphrodite.hooks.search")
 
 
 def _search_handler(args=None, **kwargs):
+    # ── Delegate to Rust dylib ──
+    try:
+        from ..headroom_ffi import get_ffi
+        r = get_ffi().dispatch("search", args or {})
+        return json.dumps(r)
+    except Exception:
+        pass
+    # ── Python path ──
     """Search across compressed items by type or content pattern (trigram-indexed)."""
     args = args if isinstance(args, dict) else {}
     query = args.get("query", "").lower()
