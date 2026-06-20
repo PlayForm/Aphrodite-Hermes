@@ -1,7 +1,8 @@
 # Aphrodite 💋 Hermes Plugin
 
-> **CCR compression plugin for Hermes Agent - sub‑ms tool output compression,
-> 28‑type classifier, 12 tools, context engine.**
+> **CCR compression plugin for Hermes Agent — thin Python loader with all logic
+> in the Rust dylib. Sub‑ms tool output compression, 28‑type classifier,
+> 12 tools, 14 skills, context engine.**
 
 Aphrodite intercepts tool output before it reaches the LLM and replaces it with
 compact, structured previews. The agent sees 15 tokens of metadata instead of
