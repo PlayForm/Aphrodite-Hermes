@@ -2,6 +2,7 @@
 Aphrodite stage-2 compression tests — semantic reduction of CCR-stored content.
 """
 import hashlib
+import json
 import os
 import sys
 
@@ -20,12 +21,12 @@ class TestStage2Reducers:
     """Individual reducer correctness."""
 
     def test_json_reducer_runs(self):
-        import json; content = json.dumps([{"name": "test_" + "x" * 80, "value": 42, "nested": {"x": 1}} for _ in range(20)], indent=2)
+        content = json.dumps([{"name": "test_" + "x" * 80, "value": 42, "nested": {"x": 1}} for _ in range(20)], indent=2)
         reduced = compress_stage2(content, "json")
         assert isinstance(reduced, str)
 
     def test_json_list_reducer_runs(self):
-        import json; content = json.dumps([{"id": i, "name": f"item_{i}"} for i in range(60)], indent=2)
+        content = json.dumps([{"id": i, "name": f"item_{i}"} for i in range(60)], indent=2)
         reduced = compress_stage2(content, "json_list")
         assert isinstance(reduced, str)
 

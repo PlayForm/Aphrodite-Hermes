@@ -293,7 +293,7 @@ def _load_dylib():
     return get_ffi()
 
 
-def _DYLIB():
+def _DYLIB():  # noqa: N802
     """Access the underlying ctypes CDLL (for direct C ABI calls)."""
     ffi = get_ffi()
     ffi._maybe_reload()

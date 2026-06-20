@@ -218,6 +218,7 @@ def _transform_tool_result(tool_name="", args=None, result="", **kwargs):
         return result
     klass = _classify_content(result)
     if _classifier_says_skip(klass):
+        preview = _make_ccr_preview(result, klass=klass, model_family=_detect_model_family())
         if proxy_available:
             target = PORTS["token"] if token_alive else PORTS["cache"]
             ccr = _compress_via_proxy(result, target, headers=_headroom_context or None)

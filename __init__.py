@@ -11,62 +11,103 @@ Thin Python loader — all compression logic lives in the Rust dylib
 import logging
 import os
 import sys
+from pathlib import Path
+
 # ── Core (re-exports everything from config + state + store + struct + template) ──
 from ._core import (
-    _CCR_RE, _DEV, _FILE_TOOLS,
-    BIN_VERSION, BINARY, BINARY_DIR, CATALOG_MODE,
-    CONTEXT_ENGINE, DEBUG_LOGGING,
-    ENGINE_MIN_MSGS, ENGINE_PROTECT_FIRST, ENGINE_PROTECT_LAST,
-    ENGINE_THRESHOLD_PCT, ENV_FILE,
-    INLINE_THRESHOLD, PLUGIN_VERSION, PORTS, RECURSIVE_DEPTH, REPO,
-    TERMINAL_THRESHOLD, TOOL_THRESHOLD_CACHE, TOOL_THRESHOLD_TOKEN,
-    _cfg_int, _conv_index, _fmt_size, _get_turn_counter, _git_cache,
-    _increment_turn, _inline_clear, _inline_store, _recent_markers,
-    _referenced_files, _reset_turn_counter,
-    _extract_code_structure,
+    _CCR_RE,
+    _DEV,
+    _FILE_TOOLS,
+    BIN_VERSION,
+    BINARY,
+    BINARY_DIR,
+    CATALOG_MODE,
+    CONTEXT_ENGINE,
+    DEBUG_LOGGING,
+    ENGINE_MIN_MSGS,
+    ENGINE_PROTECT_FIRST,
+    ENGINE_PROTECT_LAST,
+    ENGINE_THRESHOLD_PCT,
+    ENV_FILE,
+    INLINE_THRESHOLD,
+    PLUGIN_VERSION,
+    PORTS,
+    RECURSIVE_DEPTH,
+    REPO,
+    TERMINAL_THRESHOLD,
+    TOOL_THRESHOLD_CACHE,
+    TOOL_THRESHOLD_TOKEN,
+    _cfg_int,
+    _conv_index,
+    _fmt_size,
+    _get_turn_counter,
+    _git_cache,
+    _increment_turn,
+    _inline_clear,
+    _inline_store,
+    _recent_markers,
+    _referenced_files,
+    _reset_turn_counter,
 )
+
+# ── Code structure ─────────────────────────────────────
+from ._core.struct import _CODE_PATTERNS, _extract_code_structure
 
 # ── Engine ─────────────────────────────────────────────
 from ._engine import AphroditeContextEngine, _fire_hook, _set_engine, get_engine
 
 # ── Hooks ──────────────────────────────────────────────
 from ._hooks import (
-    _pre_llm_hook, _store_conversation_turn,
-    _transform_terminal_hook, _transform_tool_result,
-    _extract_preview, _track_file_refs, _group_into_turns, _git_summary,
+    CATALOG_SCHEMA,
+    DIFF_SCHEMA,
+    FILES_SCHEMA,
+    PREFETCH_SCHEMA,
+    PREFETCH_STATUS_SCHEMA,
+    REBUILD_SCHEMA,
+    RECLASSIFY_SCHEMA,
+    SEARCH_SCHEMA,
+    STATS_SCHEMA,
+    TEST_SCHEMA,
+    _aphrodite_reclassify_handler,
+    _catalog_handler,
+    _diff_handler,
+    _extract_preview,
+    _files_handler,
+    _git_summary,
+    _group_into_turns,
+    _pre_llm_hook,
+    _prefetch_handler,
+    _prefetch_status_handler,
+    _rebuild_handler,
+    _search_handler,
+    _stats_handler,
+    _store_conversation_turn,
+    _test_handler,
+    _track_file_refs,
+    _transform_terminal_hook,
+    _transform_tool_result,
 )
 
-# ── Tool handlers ──────────────────────────────────────
-from ._tools import COMPRESS_SCHEMA, RETRIEVE_SCHEMA, _compress_handler, _retrieve_handler
-from ._hooks import (
-    STATS_SCHEMA, FILES_SCHEMA, DIFF_SCHEMA, SEARCH_SCHEMA, TEST_SCHEMA,
-    CATALOG_SCHEMA, RECLASSIFY_SCHEMA, PREFETCH_SCHEMA, PREFETCH_STATUS_SCHEMA,
-    REBUILD_SCHEMA,
-    _stats_handler, _files_handler, _diff_handler, _search_handler,
-    _test_handler, _catalog_handler, _aphrodite_reclassify_handler,
-    _prefetch_handler, _prefetch_status_handler, _rebuild_handler,
-)
+# ── Inline compression ─────────────────────────────────
+from ._inline import _inline_compress, _inline_retrieve
 
 # ── Marker utilities ───────────────────────────────────
 from ._marker import _ccr_marker, _compress_via_proxy, _parse_ccr_markers
 from ._marker.classify import _classify_content
 from ._marker.preview import _make_ccr_preview
 
-# ── Resolution ─────────────────────────────────────────
-from ._resolve import _resolve_one, _resolve_recursive
-
 # ── Proxy lifecycle ────────────────────────────────────
 from ._proxy import _alive, _alive_cache, _load_env, _start, _wait_alive, on_start
 from ._proxy.health import _headroom_context
 
-# ── Inline compression ─────────────────────────────────
-from ._inline import _inline_compress, _inline_retrieve
+# ── Resolution ─────────────────────────────────────────
+from ._resolve import _resolve_one, _resolve_recursive
 
 # ── Stage 2 ────────────────────────────────────────────
 from ._stage2 import compress_stage2
 
-# ── Code structure ─────────────────────────────────────
-from ._core.struct import _CODE_PATTERNS, _extract_code_structure
+# ── Tool handlers ──────────────────────────────────────
+from ._tools import COMPRESS_SCHEMA, RETRIEVE_SCHEMA, _compress_handler, _retrieve_handler
 
 _log = logging.getLogger("aphrodite")
 

@@ -53,6 +53,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 "_tools.py" = ["E701", "E741"]
+"tests/test_*.py" = ["E402"]
 
 [tool.ruff.format]
 quote-style = "double"
