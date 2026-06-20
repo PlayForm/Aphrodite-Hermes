@@ -8,7 +8,7 @@ import urllib.request
 
 from ._core import PORTS, _hash_alias, _inline_store, _inline_store_put
 from ._proxy import _alive_cached, _headroom_context
-from ._resolve import _filter_lines, _resolve_recursive
+from ._resolve import _resolve_recursive
 
 _log = logging.getLogger("aphrodite")
 
