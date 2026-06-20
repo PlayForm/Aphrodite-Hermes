@@ -120,6 +120,28 @@ class HeadroomFFI:
         self._lib.aphrodite_free_string(ptr)
         return json.loads(result)
 
+    def stage2(self, content: str, ccr_type: str) -> str | None:
+        """Semantic reduction via Rust stage2.rs."""
+        self._maybe_reload()
+        ptr = self._lib.aphrodite_stage2(
+            content.encode("utf-8"), ccr_type.encode("utf-8")
+        )
+        result = self._read_string(ptr)
+        self._lib.aphrodite_free_string(ptr)
+        if result.startswith("{"):
+            return None  # error response
+        return result
+
+    def struct_extract(self, content: str, language: str = "") -> dict:
+        """Code structure extraction via Rust struct_extract.rs."""
+        self._maybe_reload()
+        ptr = self._lib.aphrodite_struct_extract(
+            content.encode("utf-8"), language.encode("utf-8")
+        )
+        result = self._read_string(ptr)
+        self._lib.aphrodite_free_string(ptr)
+        return json.loads(result)
+
     @property
     def version(self) -> str:
         self._maybe_reload()
@@ -235,6 +257,14 @@ class HeadroomFFI:
         # Universal dispatch
         lib.aphrodite_dispatch.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p]
         lib.aphrodite_dispatch.restype = ctypes.c_void_p
+
+        # Stage 2 reduction
+        lib.aphrodite_stage2.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+        lib.aphrodite_stage2.restype = ctypes.c_void_p
+
+        # Code structure extraction
+        lib.aphrodite_struct_extract.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+        lib.aphrodite_struct_extract.restype = ctypes.c_void_p
 
     # ── Internals ─────────────────────────────────────
 
