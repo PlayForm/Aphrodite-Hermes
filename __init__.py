@@ -177,7 +177,7 @@ def register(ctx):
             f"  Thresholds: terminal={TERMINAL_THRESHOLD} inline={INLINE_THRESHOLD} tool_token={TOOL_THRESHOLD_TOKEN} tool_cache={TOOL_THRESHOLD_CACHE}",
             f"  Engine: threshold={ENGINE_THRESHOLD_PCT}% protect={ENGINE_PROTECT_FIRST}/{ENGINE_PROTECT_LAST} min_msgs={ENGINE_MIN_MSGS}",
             f"  CCR: depth={RECURSIVE_DEPTH}",
-            "  Tools: retrieve, compress, stats, rebuild, files, diff, search, test, catalog, reclassify",
+            "  Tools: compress, retrieve, stats, rebuild, files, diff, search, test, catalog, reclassify, prefetch, prefetch_status",
             f"  Catalog mode: {CATALOG_MODE}",
             "=" * 60,
         ]
