@@ -24,14 +24,14 @@ _BINARY_PATH = os.environ.get("APHRODITE_BINARY_PATH",
     str(_PLUGIN_DIR / "binaries" / _BINARY_NAME))
 
 _dylib: ctypes.CDLL | None = None
+_dylib_mtime: float = 0.0
 
 
 def _load_dylib() -> ctypes.CDLL:
-    """Load libaphrodite_hermes.dylib with ctypes. Uses c_void_p for Python 3.14 compat."""
-    global _dylib
-    if _dylib is not None:
-        return _dylib
+    """Load libaphrodite_hermes.dylib with ctypes. Hot-reloads on mtime change."""
+    global _dylib, _dylib_mtime
 
+    # Find current dylib path
     path = _DYLIB_PATH
     candidates = [
         path,
@@ -48,6 +48,15 @@ def _load_dylib() -> ctypes.CDLL:
             break
     assert os.path.exists(path), f"Dylib not found. Tried: {candidates}"
 
+    # Hot-reload: check mtime, reload if changed
+    current_mtime = os.path.getmtime(path)
+    if _dylib is not None and current_mtime == _dylib_mtime:
+        return _dylib
+
+    if _dylib is not None:
+        _log.info("dylib mtime changed (%.2f → %.2f) — hot-reloading %s",
+            _dylib_mtime, current_mtime, path)
+
     dylib = ctypes.CDLL(path)
 
     # c_void_p avoids Python 3.14 c_char_p malloc mismatch → SIGABRT
@@ -62,6 +71,7 @@ def _load_dylib() -> ctypes.CDLL:
     dylib.aphrodite_hermes_free_string.argtypes = [ctypes.c_void_p]
 
     _dylib = dylib
+    _dylib_mtime = current_mtime
     return dylib
 
 
