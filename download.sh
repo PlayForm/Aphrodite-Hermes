@@ -11,9 +11,21 @@ REPO="${REPO:-PlayForm/Aphrodite}"
 BIN_VERSION="${1:-}"
 TARGET="${2:-}"
 
-# ── Auto-detect version from plugin.yaml ──
+# ── Auto-detect version ──
 if [[ -z "$BIN_VERSION" ]]; then
-	# Try plugin.yaml in same dir, then parent dir
+	# Try Cargo.toml in workspace/crate dirs (monorepo), then plugin.yaml, then env
+	for f in ../../crates/aphrodite/Cargo.toml ../../Cargo.toml ../crates/aphrodite/Cargo.toml ../Cargo.toml; do
+		if [[ -f "$f" ]]; then
+			# Extract version from: version = "0.9.4"
+			BIN_VERSION=$(grep '^version' "$f" | head -1 | awk -F'"' '{print $2}')
+			if [[ -n "$BIN_VERSION" ]]; then
+				break
+			fi
+		fi
+	done
+fi
+if [[ -z "$BIN_VERSION" ]]; then
+	# Fallback: try plugin.yaml (Hermes plugin version — NOT the same as binary version)
 	for f in plugin.yaml ../plugin.yaml; do
 		if [[ -f "$f" ]]; then
 			BIN_VERSION=$(grep '^version:' "$f" | head -1 | awk '{print $2}' | tr -d '"')

@@ -55,6 +55,8 @@ def _load_dylib() -> ctypes.CDLL:
     dylib.aphrodite_hermes_get_hooks.restype = ctypes.c_void_p
     dylib.aphrodite_hermes_dispatch_tool.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
     dylib.aphrodite_hermes_dispatch_tool.restype = ctypes.c_void_p
+    dylib.aphrodite_hermes_call_hook.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+    dylib.aphrodite_hermes_call_hook.restype = ctypes.c_void_p
     dylib.aphrodite_hermes_proxy_health.restype = ctypes.c_void_p
     dylib.aphrodite_hermes_free_string.argtypes = [ctypes.c_void_p]
 
@@ -121,11 +123,24 @@ def register(ctx):
     dylib = _load_dylib()
     _log.info("aphrodite-hermes dylib loaded: %s", _DYLIB_PATH)
 
-    # Register hooks
+    # Register hooks — dispatch to Rust dylib via aphrodite_hermes_call_hook
     hooks = _call_json(dylib.aphrodite_hermes_get_hooks)
     if hooks:
+        def _hook_dispatch(hook_name, **kwargs):
+            """Dispatch hook to Rust dylib and return parsed result."""
+            # Hermes passes hook args as kwargs (content, tool_name, etc.)
+            args_json = json.dumps(kwargs)
+            return _call_json(
+                dylib.aphrodite_hermes_call_hook,
+                hook_name.encode("utf-8"),
+                args_json.encode("utf-8"),
+            )
+
         for hook_name in hooks:
-            ctx.register_hook(hook_name, lambda *a, name=hook_name, **kw: None)
+            ctx.register_hook(
+                hook_name,
+                lambda *a, name=hook_name, **kw: _hook_dispatch(name, **kw),
+            )
         _log.info("registered %d hooks", len(hooks))
 
     # Register tools
