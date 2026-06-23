@@ -1,6 +1,6 @@
 name: aphrodite
 version: 2.0.1
-description: "CCR compression plugin — 28-type classifier, 12 tools, dylib hot-reload, context engine, TOML-driven templates."
+description: "CCR compression plugin - 28-type classifier, 12 tools, dylib hot-reload, context engine, TOML-driven templates."
 kind: standalone
 min_hermes_version: "0.16.0"
 requires_hooks: true
@@ -28,8 +28,8 @@ provides_context_engine: true
 # Ships 9 skills: auto-expand-testing, benchmarking, cargo-upgrade, development-lessons,
 # hook-reference, operations, release-workflow, upgrade-breakpoints, v0.8.6-patterns
 install_message: |
-  aphrodite v2.0.1 — CCR compression plugin for Hermes Agent (Rust-powered).
-  All logic in libaphrodite.dylib — __init__.py is a thin registration shim.
+  aphrodite v2.0.1 - CCR compression plugin for Hermes Agent (Rust-powered).
+  All logic in libaphrodite.dylib - __init__.py is a thin registration shim.
   Proxies: token (:9798, SQLite, >1KB), cache (:9797, in-memory, >8KB).
   Engine: context_engine=true in aphrodite.toml (default-on).
   Download: bash download.sh (fetches prebuilt binary from GitHub Releases).

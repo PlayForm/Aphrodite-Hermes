@@ -1,4 +1,4 @@
-"""aphrodite — CCR compression plugin for Hermes Agent (Rust-powered).
+"""aphrodite - CCR compression plugin for Hermes Agent (Rust-powered).
 
 All logic in libaphrodite_hermes.dylib. This file is a thin registration shim.
 Architecture: __init__.py → ctypes → libaphrodite_hermes.dylib → aphrodite crate (rlib)
@@ -54,7 +54,7 @@ def _load_dylib() -> ctypes.CDLL:
         return _dylib
 
     if _dylib is not None:
-        _log.info("dylib mtime changed (%.2f → %.2f) — hot-reloading %s",
+        _log.info("dylib mtime changed (%.2f → %.2f) - hot-reloading %s",
             _dylib_mtime, current_mtime, path)
 
     dylib = ctypes.CDLL(path)
@@ -135,7 +135,7 @@ def register(ctx):
     dylib = _load_dylib()
     _log.info("aphrodite-hermes dylib loaded: %s", _DYLIB_PATH)
 
-    # Register hooks — dispatch to Rust dylib via aphrodite_hermes_call_hook
+    # Register hooks - dispatch to Rust dylib via aphrodite_hermes_call_hook
     hooks = _call_json(dylib.aphrodite_hermes_get_hooks)
     if hooks:
         def _hook_dispatch(hook_name, **kwargs):
@@ -163,7 +163,7 @@ def register(ctx):
             ctx.register_tool(schema, _make_handler(name))
         _log.info("registered %d tools: %s", len(schemas), [s["name"] for s in schemas])
 
-    # Register skills — from monorepo skills/ directory
+    # Register skills - from monorepo skills/ directory
     _skills_dir = Path(__file__).resolve().parent.parent.parent / "skills"
     skills = _call_json(dylib.aphrodite_hermes_list_skills)
     if skills:

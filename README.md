@@ -1,11 +1,11 @@
 # Aphrodite 💋 Hermes Plugin
 
-> **CCR compression plugin for Hermes Agent — thin Python loader + Rust dylib.**
-> **Sub‑ms tool output compression, 28‑type classifier, 12 tools, 9 skills.**
+> **CCR compression plugin for Hermes Agent - thin Python loader + Rust dylib.**
+> **Sub-ms tool output compression, 28-type classifier, 12 tools, 9 skills.**
 
 Aphrodite intercepts tool output before it reaches the LLM and replaces it with
 compact, structured previews. The agent sees 15 tokens of metadata instead of
-500 tokens of raw text — and retrieves the full content only when it actually
+500 tokens of raw text - and retrieves the full content only when it actually
 needs it. **All compression logic runs in the Rust dylib.**
 
 [![plugin](https://img.shields.io/badge/plugin-v2.0.1-purple)](plugin.yaml)
@@ -155,7 +155,7 @@ Env var overrides: `APHRODITE_ENGINE_THRESHOLD_PCT`, `APHRODITE_CONTEXT_ENGINE`,
 git clone https://github.com/PlayForm/Aphrodite.git
 cd Aphrodite
 cargo build -p aphrodite
-# Dylib at target/debug/libaphrodite.dylib — auto-detected by plugin
+# Dylib at target/debug/libaphrodite.dylib - auto-detected by plugin
 ```
 
 ---

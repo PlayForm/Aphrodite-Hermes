@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# aphrodite — download prebuilt binary from GitHub Releases
+# aphrodite - download prebuilt binary from GitHub Releases
 # Usage: bash download.sh [version] [target-triple]
 #   version: default from plugin.yaml (auto-detected)
 #   target:  auto-detected from uname -sm
@@ -25,7 +25,7 @@ if [[ -z "$BIN_VERSION" ]]; then
 	done
 fi
 if [[ -z "$BIN_VERSION" ]]; then
-	# Fallback: try plugin.yaml (Hermes plugin version — NOT the same as binary version)
+	# Fallback: try plugin.yaml (Hermes plugin version - NOT the same as binary version)
 	for f in plugin.yaml ../plugin.yaml; do
 		if [[ -f "$f" ]]; then
 			BIN_VERSION=$(grep '^version:' "$f" | head -1 | awk '{print $2}' | tr -d '"')
