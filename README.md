@@ -16,7 +16,7 @@ needs it. **All compression logic runs in the Rust dylib.**
 
 ## Install ⚡
 
-> **You install THIS repo** — the standalone `Aphrodite-Hermes` plugin.
+### One-command
 
 ```bash
 git clone https://github.com/PlayForm/Aphrodite-Hermes.git
@@ -26,15 +26,60 @@ hermes
 ```
 
 On first launch, the plugin **automatically downloads** the `aphrodite` binary
-from [releases](https://github.com/PlayForm/Aphrodite/releases). No Rust toolchain required.
+from [releases](https://github.com/PlayForm/Aphrodite/releases). No Rust
+toolchain required.
 
-### Dev Install (Rust source)
+### What changes after install
+
+After installing and launching Hermes once:
+
+```
+~/.hermes/
+├── plugins/
+│   └── aphrodite → /path/to/Aphrodite-Hermes    ← symlink to this repo
+├── aphrodite/
+│   ├── aphrodite                                 ← auto-downloaded binary (~12 MB)
+│   └── ccr.db                                    ← SQLite CCR store (on first run)
+└── profiles/<name>/
+    └── plugins/
+        └── aphrodite → ~/.hermes/plugins/aphrodite
+```
+
+The plugin also adds to your Hermes config:
+
+```yaml
+# Added automatically on enable
+plugins:
+  enabled:
+    - aphrodite
+
+# Recommended additions (manual)
+context:
+  engine: aphrodite
+  engine_threshold_pct: 55
+model:
+  context_length: 1000000
+```
+
+Two proxy processes launch on `:9797` (cache) and `:9798` (token).
+
+### Verify it's working
 
 ```bash
-git clone https://github.com/PlayForm/Aphrodite.git
-cd Aphrodite
-cargo build -p aphrodite
-# Dylib at target/debug/libaphrodite.dylib — auto-detected by plugin
+# In a Hermes session:
+aphrodite_stats
+
+# Or via CLI:
+curl http://127.0.0.1:9798/health
+# → {"status":"ok","version":"v1.0.3"}
+```
+
+### Clean uninstall
+
+```bash
+hermes plugins disable aphrodite
+rm ~/.hermes/plugins/aphrodite
+pkill -f "target/release/aphrodite"
 ```
 
 ---
@@ -44,9 +89,9 @@ cargo build -p aphrodite
 ```
 Python (thin loader)              Rust dylib (all logic)
   __init__.py       145L            libaphrodite.dylib
-  headroom_ffi.py   332L              ← 17 C ABI functions
-    ↓ ctypes FFI                      ← universal dispatch (14 hooks)
-  libaphrodite.dylib                  hooks, resolve, stage2,
+    ↓ ctypes FFI                      ← 17 C ABI functions
+  libaphrodite.dylib                  ← universal dispatch (14 hooks)
+                                      hooks, resolve, stage2,
                                       struct_extract, state,
                                       catalog, session, marker,
                                       prefetch, config_loader
@@ -59,74 +104,74 @@ Hot-reload: rebuild dylib → mtime change detected → next call picks up new c
 
 ## Tools 🛠️
 
-| Tool                        | Description                                |
-| :-------------------------- | :----------------------------------------- |
-| `aphrodite_retrieve`        | Resolve `<<<CCR:hash\|type>>>` markers     |
-| `aphrodite_compress`        | Compress content via CCR with type hint    |
-| `aphrodite_stats`           | Proxy health, engine status, inline store  |
-| `aphrodite_rebuild`         | Rebuild binary + restart proxies           |
-| `aphrodite_files`           | Tracked file references grouped by tool    |
-| `aphrodite_diff`            | Conversation turn history with summaries   |
-| `aphrodite_search`          | Search CCR store by keyword or type        |
-| `aphrodite_test`            | Smoke test suite (quick / full / pipeline) |
-| `aphrodite_catalog`         | Full CCR catalog with hashes, types, sizes |
-| `aphrodite_reclassify`      | Retroactive metadata enrichment            |
-| `aphrodite_prefetch`        | Background file read — markers instantly   |
-| `aphrodite_prefetch_status` | Prefetch queue status                      |
+| Tool                   | Description                                          |
+| :--------------------- | :--------------------------------------------------- |
+| `aphrodite_retrieve`   | Resolve `<<<CCR:hash\|type>>>` markers                |
+| `aphrodite_compress`   | Compress content via CCR with type hint               |
+| `aphrodite_stats`      | Proxy health, engine status, inline store size        |
+| `aphrodite_rebuild`    | Rebuild binary + restart proxies                      |
+| `aphrodite_files`      | Tracked file references grouped by tool               |
+| `aphrodite_diff`       | Conversation turn history with summaries              |
+| `aphrodite_search`     | Search CCR store by keyword or type                   |
+| `aphrodite_test`       | Smoke test suite: quick, full, matrix, pipeline       |
+| `aphrodite_catalog`    | Full CCR catalog with hashes, types, sizes, previews  |
+| `aphrodite_reclassify` | Retroactive metadata enrichment                       |
+| `aphrodite_prefetch`   | Background file read + compress (markers return instantly) |
+| `aphrodite_catalog`    | TOC view of all compressed entries                    |
 
 ---
 
-## Configuration 🔧
+## Configuration ⚙️
 
-Copy `aphrodite.toml.example` from the monorepo to `~/.hermes/aphrodite/aphrodite.toml`:
+All tuning in `aphrodite.toml` (searched: CWD → `~/.hermes/aphrodite/` → repo root):
 
 ```toml
-[defaults]
-api_url = "https://api.deepseek.com"
-model = "deepseek-v4-pro"
-
-[[proxies]]
-name = "cache"
-listen = "0.0.0.0:9797"
-mode = "cache"
-
-[[proxies]]
-name = "token"
-listen = "0.0.0.0:9798"
-mode = "token"
-tool_relay = true
-
 [compression]
-engine_threshold_pct = 45
-context_engine = true
+engine_threshold_pct = 45    # compress at 45% context fill
+engine_protect_first = 2     # messages to keep at start
+engine_protect_last = 5      # messages to keep at end
+engine_min_msgs = 8          # minimum before activating
+tool_threshold_token = 512   # token proxy threshold (bytes)
+tool_threshold_cache = 4096  # cache proxy threshold (bytes)
+code_multiplier = 3.0        # keep code in context longer
+context_engine = true        # default-on, no env var needed
+
+[previews]
+model_family = "code_first"  # compact | code_first | balance
+code_structure_map = true    # show fn/struct/class sigs
+
+[prompts]
+retrieve_guidance = "verbose"
+ccr_marker_hint = true
 ```
+
+Env var overrides: `APHRODITE_ENGINE_THRESHOLD_PCT`, `APHRODITE_CONTEXT_ENGINE`, etc.
 
 ---
 
-## Dev Workflow 🦀
+## Dev Install (Rust source)
 
 ```bash
-# Terminal 1: cargo watch (rebuilds dylib on .rs change)
-APHRODITE_NO_AUTO_LAUNCH=1 cargo watch -x 'build -p aphrodite'
-
-# Terminal 2: Hermes (loads hot-reloaded dylib)
-hermes --profile dev-aphrodite
+git clone https://github.com/PlayForm/Aphrodite.git
+cd Aphrodite
+cargo build -p aphrodite
+# Dylib at target/debug/libaphrodite.dylib — auto-detected by plugin
 ```
 
-| What changes     | What happens                                              |
-|------------------|-----------------------------------------------------------|
-| Any `.rs` file   | cargo watch rebuilds → dylib mtime changes                |
-| Next hook call   | `headroom_ffi.py` detects mtime → reloads dylib           |
-| Any `.py` file   | `/quit` + restart (Hermes caches Python imports)          |
-| Proxy binary     | `aphrodite_rebuild` → kill + copy + restart               |
+---
+
+## Files
+
+```
+Aphrodite-Hermes/
+├── __init__.py          ← 145-line Python loader (ctypes FFI)
+├── plugin.yaml          ← 12 tools, 5 hooks, context engine
+├── download.sh          ← Binary auto-downloader
+├── binaries/            ← Platform-native dylib + proxy binary
+├── README.md            ← This file
+└── .gitignore
+```
 
 ---
 
-## More 🔗
-
-- **[Monorepo](https://github.com/PlayForm/Aphrodite)** — Rust source, docs, benchmarks
-- **[Hermes Agent](https://github.com/NousResearch/hermes-agent)** — the agent framework
-
----
-
-_CC0‑1.0 — public domain. A PlayForm project._
+⭐ **Star the monorepo**: [PlayForm/Aphrodite](https://github.com/PlayForm/Aphrodite)
