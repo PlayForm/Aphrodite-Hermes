@@ -79,7 +79,8 @@ def _read_str(ptr: int) -> str | None:
     """Read a null-terminated C string from a void pointer."""
     if ptr is None or ptr == 0:
         return None
-    return ctypes.cast(ptr, ctypes.c_char_p).value.decode("utf-8")
+    value = ctypes.cast(ptr, ctypes.c_char_p).value
+    return value.decode("utf-8") if value else None
 
 
 def _call_json(fn, *args):
