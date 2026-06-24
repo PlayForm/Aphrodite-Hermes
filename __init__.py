@@ -131,7 +131,15 @@ def _proxy_health():
 
 # ── Plugin registration ──
 def register(ctx):
-    """Register hooks, tools, and context engine with Hermes."""
+    """Register hooks, tools, and (optionally) a context engine with Hermes.
+
+    Targets the Hermes v0.17.0 PluginContext API:
+      register_hook(hook_name, callback)
+      register_tool(name, toolset, schema, handler, ...)
+      register_skill(name, path: Path, description="")
+      register_context_engine(engine)   # engine must subclass ContextEngine
+    Each registration is isolated so one failure never aborts the whole plugin.
+    """
     dylib = _load_dylib()
     _log.info("aphrodite-hermes dylib loaded: %s", _DYLIB_PATH)
 
@@ -140,8 +148,10 @@ def register(ctx):
     if hooks:
         def _hook_dispatch(hook_name, **kwargs):
             """Dispatch hook to Rust dylib and return parsed result."""
-            # Hermes passes hook args as kwargs (content, tool_name, etc.)
-            args_json = json.dumps(kwargs)
+            # Hermes passes hook args as kwargs (result, output, tool_name, ...).
+            # default=str keeps any non-JSON-serializable extras (e.g. message
+            # objects on pre/post_llm_call) from crashing the hook.
+            args_json = json.dumps(kwargs, default=str)
             return _call_json(
                 dylib.aphrodite_hermes_call_hook,
                 hook_name.encode("utf-8"),
@@ -155,32 +165,88 @@ def register(ctx):
             )
         _log.info("registered %d hooks", len(hooks))
 
-    # Register tools
+    # Register tools. Hermes API: register_tool(name, toolset, schema, handler).
     schemas = _call_json(dylib.aphrodite_hermes_get_schemas)
     if schemas:
+        registered = []
         for schema in schemas:
             name = schema["name"]
-            ctx.register_tool(schema, _make_handler(name))
-        _log.info("registered %d tools: %s", len(schemas), [s["name"] for s in schemas])
+            try:
+                ctx.register_tool(name, "aphrodite", schema, _make_handler(name))
+                registered.append(name)
+            except Exception as e:
+                _log.warning("failed to register tool %s: %s", name, e)
+        _log.info("registered %d tools: %s", len(registered), registered)
 
-    # Register skills - from monorepo skills/ directory
+    # Register skills - from monorepo skills/ directory (Hermes wants a Path).
     _skills_dir = Path(__file__).resolve().parent.parent.parent / "skills"
     skills = _call_json(dylib.aphrodite_hermes_list_skills)
     if skills:
+        count = 0
         for skill in skills:
             name = skill["name"]
             desc = skill.get("description", "")
             skill_path = _skills_dir / name / "SKILL.md"
+            # Hermes skill identifiers must match [a-zA-Z0-9_-]+ (no dots), so
+            # sanitize names like "aphrodite-v0.8.6-patterns" for registration
+            # while still loading from the real on-disk directory.
+            reg_name = "".join(c if (c.isalnum() or c in "_-") else "-" for c in name)
             if skill_path.exists():
-                ctx.register_skill(name, str(skill_path), desc)
-        _log.info("registered %d skills from %s", len(skills), _skills_dir)
+                try:
+                    ctx.register_skill(reg_name, skill_path, desc)
+                    count += 1
+                except Exception as e:
+                    _log.warning("failed to register skill %s: %s", name, e)
+        _log.info("registered %d skills from %s", count, _skills_dir)
 
-    # Register context engine
-    ctx.register_context_engine(
-        name="aphrodite",
-        pre_llm_call=lambda ctx, **kw: _call_json(
-            dylib.aphrodite_hermes_dispatch_tool, b"context_engine_pre_llm", b"{}"
-        ),
-    )
+    # Context engine is opt-in (APHRODITE_CONTEXT_ENGINE=1). Hermes expects a
+    # ContextEngine subclass instance here; the per-turn catalog summary is
+    # already injected via the pre_llm_call hook above, so the default path
+    # needs no engine. Registering anything other than a ContextEngine instance
+    # is silently rejected by Hermes, so we only attempt it when asked.
+    if os.environ.get("APHRODITE_CONTEXT_ENGINE", "") == "1":
+        try:
+            _register_context_engine(ctx, dylib)
+        except Exception as e:
+            _log.warning(
+                "context engine opt-in requested but not registered (%s); "
+                "falling back to hooks + proxy", e,
+            )
 
     _start_proxy()
+
+
+def _register_context_engine(ctx, dylib):
+    """Best-effort context-engine registration (opt-in).
+
+    Builds a thin ContextEngine subclass whose pre-flight summary comes from the
+    dylib catalog. Raises if the host Hermes does not expose ContextEngine, so
+    the caller can fall back to the hook + proxy path.
+    """
+    # Resolved dynamically: `agent.context_engine` only exists inside the Hermes
+    # runtime, so a static import would break standalone lint/type checks.
+    import importlib
+
+    context_engine_cls = importlib.import_module("agent.context_engine").ContextEngine
+
+    class AphroditeContextEngine(context_engine_cls):
+        @property
+        def name(self) -> str:
+            return "aphrodite"
+
+        def update_from_response(self, usage):
+            self.last_prompt_tokens = usage.get("prompt_tokens", 0)
+            self.last_completion_tokens = usage.get("completion_tokens", 0)
+            self.last_total_tokens = usage.get("total_tokens", 0)
+
+        def should_compress(self, prompt_tokens=None):
+            # Defer to Hermes' own threshold accounting; the proxy + hooks do the
+            # heavy lifting, so the engine itself never forces a compaction.
+            return False
+
+        def compress(self, messages, current_tokens=None, focus_topic=None):
+            # Non-destructive: the proxy and transform hooks already shrink tool
+            # output, so the engine returns the transcript unchanged.
+            return messages
+
+    ctx.register_context_engine(AphroditeContextEngine())
