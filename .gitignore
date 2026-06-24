@@ -1,6 +1,9 @@
-# Aphrodite proxy binary (auto-downloaded by _binary.py)
+# Aphrodite proxy binary + plugin dylib (auto-downloaded by download.sh)
 aphrodite
 aphrodite.exe
+binaries/libaphrodite_hermes.dylib
+binaries/libaphrodite_hermes.so
+binaries/aphrodite_hermes.dll
 
 # Python
 __pycache__/
@@ -16,11 +19,11 @@ build/
 venv/
 env/
 
-# Local config — never commit your API keys
+# Local config - never commit your API keys
 aphrodite.toml
 aphrodite.local.toml
 
-# Secrets — never commit
+# Secrets - never commit
 .env
 .env.sh
 *.pem
