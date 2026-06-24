@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # aphrodite - download prebuilt binary from GitHub Releases
 # Usage: bash download.sh [version] [target-triple]
-#   version: default from plugin.yaml (auto-detected)
+#   version: auto-detected from Cargo.toml (monorepo), falls back to plugin.yaml
 #   target:  auto-detected from uname -sm
 
 set -euo pipefail
@@ -12,11 +12,13 @@ BIN_VERSION="${1:-}"
 TARGET="${2:-}"
 
 # ── Auto-detect version ──
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -z "$BIN_VERSION" ]]; then
-	# Try Cargo.toml in workspace/crate dirs (monorepo), then plugin.yaml, then env
-	for f in ../../crates/aphrodite/Cargo.toml ../../Cargo.toml ../crates/aphrodite/Cargo.toml ../Cargo.toml; do
+	# Resolve paths relative to the script itself, not cwd
+	for f in "$SCRIPT_DIR/../../crates/aphrodite/Cargo.toml" \
+	         "$SCRIPT_DIR/../../crates/aphrodite-hermes/Cargo.toml" \
+	         "$SCRIPT_DIR/../../../crates/aphrodite/Cargo.toml"; do
 		if [[ -f "$f" ]]; then
-			# Extract version from: version = "0.9.4"
 			BIN_VERSION=$(grep '^version' "$f" | head -1 | awk -F'"' '{print $2}')
 			if [[ -n "$BIN_VERSION" ]]; then
 				break
@@ -25,10 +27,13 @@ if [[ -z "$BIN_VERSION" ]]; then
 	done
 fi
 if [[ -z "$BIN_VERSION" ]]; then
-	# Fallback: try plugin.yaml (Hermes plugin version - NOT the same as binary version)
-	for f in plugin.yaml ../plugin.yaml; do
+	# Last resort: try plugin.yaml — WARNING: this is the PLUGIN version,
+	# NOT the binary version. The two tracks can be completely different
+	# (e.g. plugin v2.0.1 vs binary v1.0.4). Only use if you know they match.
+	for f in "$SCRIPT_DIR/plugin.yaml" "$SCRIPT_DIR/../plugin.yaml"; do
 		if [[ -f "$f" ]]; then
 			BIN_VERSION=$(grep '^version:' "$f" | head -1 | awk '{print $2}' | tr -d '"')
+			echo "WARNING: using plugin version $BIN_VERSION as binary version — these may differ!"
 			break
 		fi
 	done
@@ -60,7 +65,9 @@ if [[ "$TARGET" == *windows* ]]; then
 	BINARY_NAME="${BINARY_NAME}.exe"
 fi
 
-DOWNLOAD_URL="https://github.com/${REPO}/releases/download/Aphrodite/${BIN_VERSION}/${BINARY_NAME}"
+# GitHub release tags include a 'v' prefix: Aphrodite/v1.0.4
+V="${BIN_VERSION#v}"  # strip any existing v so we don't double it
+DOWNLOAD_URL="https://github.com/${REPO}/releases/download/Aphrodite/v${V}/${BINARY_NAME}"
 BINARY_PATH="${BINARY_DIR}/aphrodite"
 
 echo "aphrodite: downloading v${BIN_VERSION} for ${TARGET}..."
