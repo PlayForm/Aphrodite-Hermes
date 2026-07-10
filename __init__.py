@@ -107,7 +107,15 @@ def _make_handler(tool_name: str) -> Callable[..., str]:
 
 
 def _start_proxy():
-    """Start the aphrodite proxy binary."""
+    """Start the aphrodite proxy binary and verify both proxies are healthy.
+
+    Pipes stderr to a log file (not DEVNULL) so startup errors are
+    diagnosable.  After launch, polls both proxy health endpoints for up
+    to 5 seconds and logs a warning for each one that doesn't come up.
+    """
+    import time
+    import urllib.request
+
     binary = _BINARY_PATH
     if not os.path.exists(binary):
         _log.warning("aphrodite binary not found at %s", binary)
@@ -116,11 +124,67 @@ def _start_proxy():
         os.chmod(binary, 0o755)
     env = os.environ.copy()
     env.setdefault("APHRODITE_NO_AUTO_LAUNCH", "0")
+
+    # Write stderr to a log file so startup errors (e.g. SQLite "unable
+    # to open database file") are visible.  Previously stderr was piped
+    # to DEVNULL, making every startup failure silent.
+    log_dir = Path.home() / ".hermes" / "aphrodite"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    stderr_log = open(log_dir / "proxy-stderr.log", "a")
+
     try:
-        subprocess.Popen([binary], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=os.getcwd())
+        subprocess.Popen(
+            [binary],
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=stderr_log,
+            cwd=os.getcwd(),
+        )
         _log.info("aphrodite proxy started (%s)", binary)
     except Exception as e:
         _log.warning("failed to start aphrodite proxy: %s", e)
+        stderr_log.close()
+        return
+
+    # ── Health check: poll both proxies for up to 5 seconds ──────
+    # Read custom ports from env vars (matching the Rust dylib's
+    # configured_ports() in aphrodite-hermes/src/lib.rs).  Falls back
+    # to the historical 9797/9798 defaults when unset.
+    _cache_port = int(os.environ.get("APHRODITE_CACHE_PORT", "9797"))
+    _token_port = int(os.environ.get("APHRODITE_TOKEN_PORT", "9798"))
+    proxies = [
+        ("cache", _cache_port),
+        ("token", _token_port),
+    ]
+    deadline = time.monotonic() + 5.0
+    up: set[str] = set()
+    while time.monotonic() < deadline:
+        for name, port in proxies:
+            if name in up:
+                continue
+            try:
+                req = urllib.request.Request(
+                    f"http://127.0.0.1:{port}/health",
+                    method="GET",
+                )
+                with urllib.request.urlopen(req, timeout=0.5) as resp:
+                    if resp.status == 200:
+                        up.add(name)
+                        _log.info("aphrodite %s proxy healthy on :%d", name, port)
+            except Exception:
+                pass
+        if len(up) == len(proxies):
+            break
+        time.sleep(0.5)
+
+    for name, port in proxies:
+        if name not in up:
+            _log.warning(
+                "aphrodite %s proxy on :%d did not become healthy within 5s "
+                "- check ~/.hermes/aphrodite/proxy-stderr.log for errors",
+                name,
+                port,
+            )
 
 
 # ── Plugin registration ──
