@@ -9,7 +9,9 @@ import logging
 import os
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 _log = logging.getLogger("aphrodite")
 
@@ -75,7 +77,7 @@ def _load_dylib() -> ctypes.CDLL:
     return dylib
 
 
-def _read_str(ptr: int) -> str | None:
+def _read_str(ptr: int | None) -> str | None:
     """Read a null-terminated C string from a void pointer."""
     if ptr is None or ptr == 0:
         return None
@@ -83,7 +85,7 @@ def _read_str(ptr: int) -> str | None:
     return value.decode("utf-8") if value else None
 
 
-def _call_json(fn, *args):
+def _call_json(fn: Callable[..., int | None], *args: bytes) -> Any:
     """Call C function, decode JSON, free C string."""
     ptr = fn(*args)
     result = _read_str(ptr)
@@ -92,9 +94,9 @@ def _call_json(fn, *args):
     return json.loads(result) if result else None
 
 
-def _make_handler(tool_name: str):
+def _make_handler(tool_name: str) -> Callable[..., str]:
     """Create tool handler that dispatches via dylib."""
-    def handler(args=None, **kwargs):
+    def handler(args: dict[str, Any] | None = None, **kwargs: Any) -> str:
         args_json = json.dumps(args or {})
         return json.dumps(_call_json(
             _load_dylib().aphrodite_hermes_dispatch_tool,
@@ -121,16 +123,8 @@ def _start_proxy():
         _log.warning("failed to start aphrodite proxy: %s", e)
 
 
-def _proxy_health():
-    """Probe proxy health and format for stats display."""
-    try:
-        return _call_json(_load_dylib().aphrodite_hermes_proxy_health)
-    except Exception:
-        return {}
-
-
 # ── Plugin registration ──
-def register(ctx):
+def register(ctx: Any) -> None:
     """Register hooks, tools, and (optionally) a context engine with Hermes.
 
     Targets the Hermes v0.17.0 PluginContext API:
@@ -146,7 +140,7 @@ def register(ctx):
     # Register hooks - dispatch to Rust dylib via aphrodite_hermes_call_hook
     hooks = _call_json(dylib.aphrodite_hermes_get_hooks)
     if hooks:
-        def _hook_dispatch(hook_name, **kwargs):
+        def _hook_dispatch(hook_name: str, **kwargs: Any) -> Any:
             """Dispatch hook to Rust dylib and return parsed result."""
             # Hermes passes hook args as kwargs (result, output, tool_name, ...).
             # default=str keeps any non-JSON-serializable extras (e.g. message
@@ -159,16 +153,15 @@ def register(ctx):
             )
 
         for hook_name in hooks:
-            ctx.register_hook(
-                hook_name,
-                lambda *a, name=hook_name, **kw: _hook_dispatch(name, **kw),
-            )
+            def _dispatch(*a: Any, name: str = hook_name, **kw: Any) -> Any:
+                return _hook_dispatch(name, **kw)
+            ctx.register_hook(hook_name, _dispatch)
         _log.info("registered %d hooks", len(hooks))
 
     # Register tools. Hermes API: register_tool(name, toolset, schema, handler).
     schemas = _call_json(dylib.aphrodite_hermes_get_schemas)
     if schemas:
-        registered = []
+        registered: list[str] = []
         for schema in schemas:
             name = schema["name"]
             try:
@@ -216,7 +209,7 @@ def register(ctx):
     _start_proxy()
 
 
-def _register_context_engine(ctx, dylib):
+def _register_context_engine(ctx: Any, dylib: ctypes.CDLL) -> None:
     """Best-effort context-engine registration (opt-in).
 
     Builds a thin ContextEngine subclass whose pre-flight summary comes from the
@@ -234,17 +227,22 @@ def _register_context_engine(ctx, dylib):
         def name(self) -> str:
             return "aphrodite"
 
-        def update_from_response(self, usage):
+        def update_from_response(self, usage: dict[str, Any]) -> None:
             self.last_prompt_tokens = usage.get("prompt_tokens", 0)
             self.last_completion_tokens = usage.get("completion_tokens", 0)
             self.last_total_tokens = usage.get("total_tokens", 0)
 
-        def should_compress(self, prompt_tokens=None):
+        def should_compress(self, prompt_tokens: int | None = None) -> bool:
             # Defer to Hermes' own threshold accounting; the proxy + hooks do the
             # heavy lifting, so the engine itself never forces a compaction.
             return False
 
-        def compress(self, messages, current_tokens=None, focus_topic=None):
+        def compress(
+            self,
+            messages: list[Any],
+            current_tokens: int | None = None,
+            focus_topic: str | None = None,
+        ) -> list[Any]:
             # Non-destructive: the proxy and transform hooks already shrink tool
             # output, so the engine returns the transcript unchanged.
             return messages
