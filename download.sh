@@ -118,16 +118,18 @@ fetch_and_validate() {
 BINARY_ASSET="aphrodite-${TARGET}"
 if [[ "$TARGET" == *windows* ]]; then
 	BINARY_ASSET="${BINARY_ASSET}.exe"
+	BINARY_PATH="${BINARY_DIR}/aphrodite.exe"
 	DYLIB_ASSET="libaphrodite_hermes-${TARGET}.dll"
 	DYLIB_DEST="${BINARY_DIR}/aphrodite_hermes.dll"
 elif [[ "$TARGET" == *apple* ]]; then
+	BINARY_PATH="${BINARY_DIR}/aphrodite"
 	DYLIB_ASSET="libaphrodite_hermes-${TARGET}.dylib"
 	DYLIB_DEST="${BINARY_DIR}/libaphrodite_hermes.dylib"
 else
+	BINARY_PATH="${BINARY_DIR}/aphrodite"
 	DYLIB_ASSET="libaphrodite_hermes-${TARGET}.so"
 	DYLIB_DEST="${BINARY_DIR}/libaphrodite_hermes.so"
 fi
-BINARY_PATH="${BINARY_DIR}/aphrodite"
 
 echo "aphrodite: downloading v${BIN_VERSION} for ${TARGET} from ${BASE_URL}"
 fetch_and_validate "${BINARY_ASSET}" "${BINARY_PATH}" || exit 1

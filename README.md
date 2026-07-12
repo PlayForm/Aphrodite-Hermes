@@ -8,7 +8,7 @@ compact, structured previews. The agent sees 15 tokens of metadata instead of
 500 tokens of raw text - and retrieves the full content only when it actually
 needs it. **All compression logic runs in the Rust dylib.**
 
-[![plugin](https://img.shields.io/badge/plugin-v2.0.1-purple)](plugin.yaml)
+[![plugin](https://img.shields.io/badge/plugin-v2.0.5-purple)](plugin.yaml)
 [![hermes](https://img.shields.io/badge/hermes-≥0.16.0-blue)](https://github.com/NousResearch/hermes-agent)
 [![license](https://img.shields.io/badge/license-CC0--1.0-lightgrey)](LICENSE)
 
@@ -28,6 +28,13 @@ hermes
 On first launch, the plugin **automatically downloads** the `aphrodite` binary
 from [releases](https://github.com/PlayForm/Aphrodite/releases). No Rust
 toolchain required.
+
+> **Native Windows**: run `pwsh ./download.ps1` instead of `download.sh` - no
+> Git Bash/WSL needed. See
+> [Windows install](https://github.com/PlayForm/Aphrodite/blob/Current/docs/install/windows.md)
+> for the full walkthrough, and
+> [Troubleshooting](https://github.com/PlayForm/Aphrodite/blob/Current/docs/install/troubleshooting.md)
+> if the proxy doesn't come up after enabling the plugin.
 
 ### What changes after install
 
@@ -71,7 +78,7 @@ aphrodite_stats
 
 # Or via CLI:
 curl http://127.0.0.1:9798/health
-# → {"status":"ok","version":"v1.0.3"}
+# → {"status":"ok","version":"<current aphrodite version - see the badge above>"}
 ```
 
 ### Clean uninstall
@@ -79,7 +86,7 @@ curl http://127.0.0.1:9798/health
 ```bash
 hermes plugins disable aphrodite
 rm ~/.hermes/plugins/aphrodite
-pkill -f "target/release/aphrodite"
+pkill -f "aphrodite/binaries/aphrodite"
 ```
 
 ---
@@ -88,13 +95,13 @@ pkill -f "target/release/aphrodite"
 
 ```
 Python (thin loader)              Rust dylib (all logic)
-  __init__.py       145L            libaphrodite.dylib
-    ↓ ctypes FFI                      ← 17 C ABI functions
-  libaphrodite.dylib                  ← universal dispatch (14 hooks)
-                                      hooks, resolve, stage2,
-                                      struct_extract, state,
-                                      catalog, session, marker,
-                                      prefetch, config_loader
+  __init__.py       145L            libaphrodite_hermes.dylib
+    ↓ ctypes FFI                      ← universal dispatch (14 hooks)
+  libaphrodite_hermes.dylib           ← 12 tool handlers, delegates into
+                                      libaphrodite (core engine): hooks,
+                                      resolve, stage2, struct_extract, state,
+                                      catalog, session, marker, prefetch,
+                                      config_loader
 ```
 
 All 14 hooks + 12 tools delegate to Rust. Python serves as fallback.
@@ -117,7 +124,7 @@ Hot-reload: rebuild dylib → mtime change detected → next call picks up new c
 | `aphrodite_catalog`    | Full CCR catalog with hashes, types, sizes, previews  |
 | `aphrodite_reclassify` | Retroactive metadata enrichment                       |
 | `aphrodite_prefetch`   | Background file read + compress (markers return instantly) |
-| `aphrodite_catalog`    | TOC view of all compressed entries                    |
+| `aphrodite_prefetch_status` | Live prefetch schedule: loading, ready, errors    |
 
 ---
 
@@ -166,12 +173,10 @@ cargo build -p aphrodite
 Aphrodite-Hermes/
 ├── __init__.py          ← 145-line Python loader (ctypes FFI)
 ├── plugin.yaml          ← 12 tools, 5 hooks, context engine
-├── download.sh          ← Binary auto-downloader
+├── download.sh          ← Binary auto-downloader (macOS/Linux/Git Bash/WSL)
+├── download.ps1         ← Binary auto-downloader (native Windows PowerShell)
 ├── binaries/            ← Platform-native dylib + proxy binary
 ├── README.md            ← This file
 └── .gitignore
 ```
 
----
-
-⭐ **Star the monorepo**: [PlayForm/Aphrodite](https://github.com/PlayForm/Aphrodite)
