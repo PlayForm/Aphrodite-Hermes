@@ -230,20 +230,18 @@ def _start_proxy():
     # to DEVNULL, making every startup failure silent.
     log_dir = Path.home() / ".hermes" / "aphrodite"
     log_dir.mkdir(parents=True, exist_ok=True)
-    stderr_log = open(log_dir / "proxy-stderr.log", "a")
-
     try:
-        subprocess.Popen(
-            [binary],
-            env=env,
-            stdout=subprocess.DEVNULL,
-            stderr=stderr_log,
-            cwd=os.getcwd(),
-        )
+        with open(log_dir / "proxy-stderr.log", "a") as stderr_log:
+            subprocess.Popen(
+                [binary],
+                env=env,
+                stdout=subprocess.DEVNULL,
+                stderr=stderr_log,
+                cwd=os.getcwd(),
+            )
         _log.info("aphrodite proxy started (%s)", binary)
     except Exception as e:
         _log.warning("failed to start aphrodite proxy: %s", e)
-        stderr_log.close()
         return
 
     # ── Health check: poll both proxies for up to 5 seconds ──────
