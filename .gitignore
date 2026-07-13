@@ -2,6 +2,7 @@
 aphrodite
 aphrodite.exe
 binaries/libaphrodite_hermes.dylib
+binaries/libaphrodite.dylib
 binaries/libaphrodite_hermes.so
 binaries/aphrodite_hermes.dll
 
