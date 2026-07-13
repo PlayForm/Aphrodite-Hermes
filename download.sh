@@ -65,8 +65,63 @@ V="${BIN_VERSION#v}"  # strip any existing v so we don't double it
 BASE_URL="https://github.com/${REPO}/releases/download/Aphrodite%2Fv${V}"
 mkdir -p "${BINARY_DIR}"
 
+# ── SHA-256 checksum verification (report 12 F9/T8) ──────────────────
+# Build.yml publishes one SHA256SUMS-<target>.txt per release asset bundle.
+# Fetch it once per run; a missing sums file (e.g. a release cut before this
+# was added) degrades to a loud warning rather than a hard failure, so older
+# tags remain installable.
+SUMS_FILE="$(mktemp)"
+SUMS_ASSET="SHA256SUMS-${TARGET}.txt"
+SUMS_OK=0
+trap 'rm -f "${SUMS_FILE}"' EXIT
+if command -v curl &>/dev/null; then
+	curl -fsSL -o "${SUMS_FILE}" "${BASE_URL}/${SUMS_ASSET}" 2>/dev/null && SUMS_OK=1
+elif command -v wget &>/dev/null; then
+	wget -q -O "${SUMS_FILE}" "${BASE_URL}/${SUMS_ASSET}" 2>/dev/null && SUMS_OK=1
+fi
+if [[ "$SUMS_OK" -eq 1 ]]; then
+	echo "  ✓ fetched ${SUMS_ASSET}"
+else
+	echo "WARNING: ${SUMS_ASSET} not found - skipping checksum verification for this release (older release, or the sums asset failed to publish)"
+fi
+
+# verify_checksum <asset-name> <dest-path>
+# Checks `dest` against the SHA-256 recorded for `asset` in SUMS_FILE. A
+# no-op (returns success) when SUMS_OK=0, so callers don't need to branch.
+verify_checksum() {
+	local asset="$1" dest="$2"
+	[[ "$SUMS_OK" -eq 1 ]] || return 0
+	local expected actual
+	# Exact match on the filename field (awk's $2), not a substring grep -
+	# `shasum`'s `<hash>  <filename>` format means a substring match could
+	# hit a *different*, longer asset name that happens to start with this
+	# one (not a risk with today's two-line-per-target sums files, but this
+	# is exact regardless).
+	expected=$(awk -v want="${asset}" '$2 == want { print $1; exit }' "${SUMS_FILE}" 2>/dev/null)
+	if [[ -z "$expected" ]]; then
+		echo "WARNING: ${asset} has no entry in ${SUMS_ASSET} - skipping checksum check for this asset"
+		return 0
+	fi
+	if command -v shasum &>/dev/null; then
+		actual=$(shasum -a 256 "${dest}" | awk '{print $1}')
+	elif command -v sha256sum &>/dev/null; then
+		actual=$(sha256sum "${dest}" | awk '{print $1}')
+	else
+		echo "WARNING: no shasum/sha256sum binary found - skipping checksum check for ${asset}"
+		return 0
+	fi
+	if [[ "$expected" != "$actual" ]]; then
+		echo "ERROR: checksum mismatch for ${asset}"
+		echo "  expected: ${expected}"
+		echo "  actual:   ${actual}"
+		return 1
+	fi
+	echo "  ✓ ${asset} checksum verified"
+}
+
 # fetch_and_validate <asset-name> <dest-path>
-# Downloads a release asset and verifies it's a real native binary (ELF/Mach-O/PE),
+# Downloads a release asset, verifies it's a real native binary
+# (ELF/Mach-O/PE) and (when a sums file was found) its SHA-256 checksum,
 # restoring any prior copy on failure.
 fetch_and_validate() {
 	local asset="$1" dest="$2" url="${BASE_URL}/$1"
@@ -105,6 +160,10 @@ fetch_and_validate() {
 	esac
 	if [[ "$valid" -eq 0 ]]; then
 		echo "ERROR: ${asset} has invalid magic bytes: ${magic}"
+		[[ -f "${dest}.bak" ]] && mv "${dest}.bak" "${dest}"
+		return 1
+	fi
+	if ! verify_checksum "${asset}" "${dest}"; then
 		[[ -f "${dest}.bak" ]] && mv "${dest}.bak" "${dest}"
 		return 1
 	fi
