@@ -6,6 +6,7 @@ binaries/libaphrodite.dylib
 binaries/libaphrodite_hermes.so
 binaries/aphrodite_hermes.dll
 binaries/aphrodite-hermes-setup
+binaries/.hotreload/
 
 # Python
 __pycache__/
