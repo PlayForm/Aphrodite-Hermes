@@ -54,7 +54,7 @@ function Resolve-Version {
 
 	# 3. GitHub API - query the latest release tag (needs network, but reliable)
 	try {
-		$release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -ErrorAction Stop
+		$release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -TimeoutSec 30 -ErrorAction Stop
 		if ($release.tag_name -match 'Aphrodite/v(.+)$') { return $Matches[1] }
 	} catch {
 		# fall through to the error below
@@ -117,8 +117,25 @@ if ($ResolvedTarget -like '*windows*') {
 	$DylibDest = Join-Path $BinaryDir 'libaphrodite_hermes.so'
 }
 
-# Fetch a release asset and verify it's a real native binary (PE/Mach-O/ELF),
-# restoring any prior copy on failure.
+# SHA-256 checksum verification (mirrors download.sh's verify_checksum) - a
+# missing sums file (e.g. a release cut before this was added) degrades to a
+# loud warning rather than a hard failure, so older tags remain installable.
+$SumsAsset = "SHA256SUMS-$ResolvedTarget.txt"
+$SumsEntries = $null
+try {
+	$sumsText = Invoke-RestMethod -Uri "$BaseUrl/$SumsAsset" -TimeoutSec 30 -ErrorAction Stop
+	$SumsEntries = @{}
+	foreach ($line in ($sumsText -split "`n")) {
+		if ($line -match '^([0-9a-fA-F]{64})\s+(\S+)') { $SumsEntries[$Matches[2]] = $Matches[1].ToLower() }
+	}
+	Write-Host "  OK fetched $SumsAsset"
+} catch {
+	Write-Host "WARNING: $SumsAsset not found - skipping checksum verification for this release"
+}
+
+# Fetch a release asset and verify it's a real native binary (PE/Mach-O/ELF)
+# and (when a sums file was found) its SHA-256 checksum, restoring any prior
+# copy on failure.
 function Get-ValidatedAsset {
 	param([string]$Asset, [string]$Dest)
 
@@ -128,7 +145,9 @@ function Get-ValidatedAsset {
 	if (Test-Path $Dest) { Move-Item -Force $Dest $backup }
 
 	try {
-		Invoke-WebRequest -Uri $url -OutFile $Dest -ErrorAction Stop
+		# -TimeoutSec bounds the whole request (stall/hang guard, not a
+		# realistic-bandwidth budget - these binaries run ~10-40MB).
+		Invoke-WebRequest -Uri $url -OutFile $Dest -TimeoutSec 120 -ErrorAction Stop
 	} catch {
 		if (Test-Path $backup) { Move-Item -Force $backup $Dest }
 		throw "download failed: $url ($_)"
@@ -151,6 +170,17 @@ function Get-ValidatedAsset {
 	if (-not $valid) {
 		if (Test-Path $backup) { Move-Item -Force $backup $Dest }
 		throw "$Asset has invalid magic bytes: $magic"
+	}
+
+	if ($SumsEntries -and $SumsEntries.ContainsKey($Asset)) {
+		$actual = (Get-FileHash $Dest -Algorithm SHA256).Hash.ToLower()
+		if ($actual -ne $SumsEntries[$Asset]) {
+			if (Test-Path $backup) { Move-Item -Force $backup $Dest }
+			throw "checksum mismatch for $Asset`: expected $($SumsEntries[$Asset]), got $actual"
+		}
+		Write-Host "  OK $Asset checksum verified"
+	} elseif ($SumsEntries) {
+		Write-Host "WARNING: $Asset has no entry in $SumsAsset - skipping checksum check for this asset"
 	}
 
 	Remove-Item -Force $backup -ErrorAction SilentlyContinue

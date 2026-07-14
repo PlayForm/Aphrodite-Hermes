@@ -39,7 +39,7 @@ fi
 if [[ -z "$BIN_VERSION" ]]; then
 	# 3. GitHub API - query latest release tag (needs network, but reliable)
 	if command -v curl &>/dev/null; then
-		BIN_VERSION=$(curl -fsS "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | \
+		BIN_VERSION=$(curl -fsS --connect-timeout 10 --max-time 30 "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | \
 			grep '"tag_name":' | head -1 | sed 's/.*"tag_name": *"Aphrodite\/v\([^"]*\)".*/\1/')
 	fi
 fi
@@ -81,9 +81,9 @@ SUMS_ASSET="SHA256SUMS-${TARGET}.txt"
 SUMS_OK=0
 trap 'rm -f "${SUMS_FILE}"' EXIT
 if command -v curl &>/dev/null; then
-	curl -fsSL -o "${SUMS_FILE}" "${BASE_URL}/${SUMS_ASSET}" 2>/dev/null && SUMS_OK=1
+	curl -fsSL --connect-timeout 10 --max-time 30 -o "${SUMS_FILE}" "${BASE_URL}/${SUMS_ASSET}" 2>/dev/null && SUMS_OK=1
 elif command -v wget &>/dev/null; then
-	wget -q -O "${SUMS_FILE}" "${BASE_URL}/${SUMS_ASSET}" 2>/dev/null && SUMS_OK=1
+	wget -q --connect-timeout=10 --timeout=30 -O "${SUMS_FILE}" "${BASE_URL}/${SUMS_ASSET}" 2>/dev/null && SUMS_OK=1
 fi
 if [[ "$SUMS_OK" -eq 1 ]]; then
 	echo "  ✓ fetched ${SUMS_ASSET}"
@@ -135,13 +135,17 @@ fetch_and_validate() {
 	[[ -f "${dest}" ]] && mv "${dest}" "${dest}.bak" 2>/dev/null || true
 
 	if command -v curl &>/dev/null; then
-		curl -fSL --progress-bar -o "${dest}" "${url}" || {
+		# --connect-timeout bounds the initial handshake (fail fast on an
+		# unreachable host); --max-time bounds the whole transfer generously
+		# (these binaries run ~10-40MB, so this is a stall/hang guard, not a
+		# realistic-bandwidth budget).
+		curl -fSL --connect-timeout 10 --max-time 120 --progress-bar -o "${dest}" "${url}" || {
 			echo "ERROR: curl download failed: ${url}"
 			[[ -f "${dest}.bak" ]] && mv "${dest}.bak" "${dest}"
 			return 1
 		}
 	elif command -v wget &>/dev/null; then
-		wget -q --show-progress -O "${dest}" "${url}" || {
+		wget -q --connect-timeout=10 --timeout=120 --show-progress -O "${dest}" "${url}" || {
 			echo "ERROR: wget download failed: ${url}"
 			[[ -f "${dest}.bak" ]] && mv "${dest}.bak" "${dest}"
 			return 1
