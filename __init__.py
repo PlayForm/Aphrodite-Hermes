@@ -3,6 +3,7 @@
 All logic in libaphrodite_hermes.dylib. This file is a thin registration shim.
 Architecture: __init__.py → ctypes → libaphrodite_hermes.dylib → aphrodite crate (rlib)
 """
+import contextlib
 import ctypes
 import itertools
 import json
@@ -114,10 +115,8 @@ def _load_dylib() -> ctypes.CDLL:
         # so deleting it here is safe and keeps `.hotreload/` from growing
         # unboundedly across a long dev session.
         if _dylib_copy_path is not None:
-            try:
+            with contextlib.suppress(OSError):
                 os.remove(_dylib_copy_path)
-            except OSError:
-                pass
 
         try:
             # c_void_p avoids Python 3.14 c_char_p malloc mismatch → SIGABRT
