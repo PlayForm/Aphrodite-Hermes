@@ -1,7 +1,7 @@
 # Aphrodite 💋 Hermes Plugin
 
 > **CCR compression plugin for Hermes Agent - thin Python loader + Rust dylib.**
-> **Sub-ms tool output compression, 28-type classifier, 12 tools, 9 skills.**
+> **Sub-ms tool output compression, 26-type classifier, 13 tools, 9 skills.**
 
 Aphrodite intercepts tool output before it reaches the LLM and replaces it with
 compact, structured previews. The agent sees 15 tokens of metadata instead of
@@ -95,16 +95,16 @@ pkill -f "aphrodite/binaries/aphrodite"
 
 ```
 Python (thin loader)              Rust dylib (all logic)
-  __init__.py       145L            libaphrodite_hermes.dylib
-    ↓ ctypes FFI                      ← universal dispatch (14 hooks)
-  libaphrodite_hermes.dylib           ← 12 tool handlers, delegates into
+  __init__.py       421L            libaphrodite_hermes.dylib
+    ↓ ctypes FFI                      ← universal dispatch (5 hooks)
+  libaphrodite_hermes.dylib           ← 13 tool handlers, delegates into
                                       libaphrodite (core engine): hooks,
                                       resolve, stage2, struct_extract, state,
                                       catalog, session, marker, prefetch,
                                       config_loader
 ```
 
-All 14 hooks + 12 tools delegate to Rust. Python serves as fallback.
+All 5 hooks + 13 tools delegate to Rust. Python serves as fallback.
 Hot-reload: rebuild dylib → mtime change detected → next call picks up new code.
 
 ---
@@ -116,11 +116,12 @@ Hot-reload: rebuild dylib → mtime change detected → next call picks up new c
 | `aphrodite_retrieve`   | Resolve `<<<CCR:hash\|type>>>` markers                |
 | `aphrodite_compress`   | Compress content via CCR with type hint               |
 | `aphrodite_stats`      | Proxy health, engine status, inline store size        |
-| `aphrodite_rebuild`    | Rebuild binary + restart proxies                      |
+| `aphrodite_rebuild`    | Report binary/proxy version + a rebuild hint (does not rebuild or restart itself) |
 | `aphrodite_files`      | Tracked file references grouped by tool               |
 | `aphrodite_diff`       | Conversation turn history with summaries              |
 | `aphrodite_search`     | Search CCR store by keyword or type                   |
-| `aphrodite_test`       | Smoke test suite: quick, full, matrix, pipeline       |
+| `aphrodite_directive`  | List/swap/add/remove/reset active behavioral directives |
+| `aphrodite_test`       | Smoke test suite: quick (1 sample) or full (3 samples) |
 | `aphrodite_catalog`    | Full CCR catalog with hashes, types, sizes, previews  |
 | `aphrodite_reclassify` | Retroactive metadata enrichment                       |
 | `aphrodite_prefetch`   | Background file read + compress (markers return instantly) |
@@ -171,8 +172,8 @@ cargo build -p aphrodite
 
 ```
 Aphrodite-Hermes/
-├── __init__.py          ← 145-line Python loader (ctypes FFI)
-├── plugin.yaml          ← 12 tools, 5 hooks, context engine
+├── __init__.py          ← 421-line Python loader (ctypes FFI)
+├── plugin.yaml          ← 13 tools, 5 hooks, context engine
 ├── download.sh          ← Binary auto-downloader (macOS/Linux/Git Bash/WSL)
 ├── download.ps1         ← Binary auto-downloader (native Windows PowerShell)
 ├── binaries/            ← Platform-native dylib + proxy binary
