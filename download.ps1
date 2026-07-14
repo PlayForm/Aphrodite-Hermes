@@ -17,9 +17,12 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$BinaryDir = if ($env:BINARY_DIR) { $env:BINARY_DIR } else { 'binaries' }
-$Repo = if ($env:REPO) { $env:REPO } else { 'PlayForm/Aphrodite' }
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+# 03-F18: default BinaryDir relative to the script's own directory, not
+# $PWD (wherever this script happened to be invoked from) - see download.sh's
+# matching fix for the same bug.
+$BinaryDir = if ($env:BINARY_DIR) { $env:BINARY_DIR } else { Join-Path $ScriptDir 'binaries' }
+$Repo = if ($env:REPO) { $env:REPO } else { 'PlayForm/Aphrodite' }
 
 # ── Auto-detect version ──────────────────────────────────────────────
 function Resolve-Version {

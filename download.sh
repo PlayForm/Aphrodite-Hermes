@@ -6,13 +6,19 @@
 
 set -euo pipefail
 
-BINARY_DIR="${BINARY_DIR:-binaries}"
+# 03-F18: BINARY_DIR used to default to a bare "binaries" - relative to
+# $PWD (wherever this script happened to be invoked FROM), not to the
+# script's own directory. Running `bash download.sh` from anywhere other
+# than `plugins/aphrodite/` silently wrote binaries to the wrong place,
+# not the `binaries/` directory the Hermes plugin's `__init__.py` actually
+# looks in.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BINARY_DIR="${BINARY_DIR:-$SCRIPT_DIR/binaries}"
 REPO="${REPO:-PlayForm/Aphrodite}"
 BIN_VERSION="${1:-}"
 TARGET="${2:-}"
 
 # ── Auto-detect version ──
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -z "$BIN_VERSION" ]]; then
 	# 1. BINARY_VERSION file - deployed with the plugin, always correct
 	if [[ -f "$SCRIPT_DIR/BINARY_VERSION" ]]; then
