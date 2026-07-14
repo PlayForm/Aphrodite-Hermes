@@ -388,8 +388,26 @@ def register(ctx: Any) -> None:
                 _log.warning("failed to register tool %s: %s", name, e)
         _log.info("registered %d tools: %s", len(registered), registered)
 
-    # Register skills - from monorepo skills/ directory (Hermes wants a Path).
-    _skills_dir = Path(__file__).resolve().parent.parent.parent / "skills"
+    # Register skills - probe candidate layouts in order (Hermes wants a Path):
+    # a `skills/` copied alongside this plugin (the standalone/`aphrodite setup`
+    # install target), the monorepo layout (`<repo>/skills`, two levels up from
+    # `<repo>/plugins/aphrodite`), and one level further for a deeper nesting.
+    # Under a resolved symlink install (`~/.hermes/plugins/aphrodite` ->
+    # `~/.hermes/aphrodite`), the old hardcoded `parent.parent.parent` guess
+    # landed on `~/skills` (never exists) - 0 of the 9 advertised skills ever
+    # registered outside a monorepo checkout, with only an info log to notice.
+    _skills_dir_candidates = [
+        _PLUGIN_DIR / "skills",
+        _PLUGIN_DIR.parents[1] / "skills",
+        _PLUGIN_DIR.parents[2] / "skills",
+    ]
+    _skills_dir = next((p for p in _skills_dir_candidates if p.is_dir()), None)
+    if _skills_dir is None:
+        _log.warning(
+            "no skills/ directory found (tried %s) - 0 skills will register",
+            _skills_dir_candidates,
+        )
+        _skills_dir = _skills_dir_candidates[0]
     skills = _call_json(dylib, "aphrodite_hermes_list_skills")
     if skills:
         count = 0
