@@ -75,9 +75,13 @@ def _load_dylib() -> ctypes.CDLL:
             str(_PLUGIN_DIR / "binaries" / _DYLIB_NAME),
             str(_PLUGIN_DIR.parent / "binaries" / _DYLIB_NAME),
         ]
-        if sys.platform == "darwin":
+        # Monorepo dev-build fallback: for `<repo>/plugins/aphrodite/__init__.py`,
+        # parents[2] is `<repo>` (where `target/release` actually lives) - not
+        # darwin-specific (Linux dev builds want the .so equally), and
+        # parents[3] covers a one-deeper nesting some checkouts use.
+        for depth in (2, 3):
             candidates.append(
-                str(Path(__file__).resolve().parents[3] / "target" / "release" / _DYLIB_NAME)
+                str(Path(__file__).resolve().parents[depth] / "target" / "release" / _DYLIB_NAME)
             )
         for p in candidates:
             if os.path.exists(p):
