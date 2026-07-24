@@ -1,6 +1,6 @@
 # Aphrodite proxy binary + plugin dylib (auto-downloaded by download.sh)
-aphrodite
-aphrodite.exe
+binaries/aphrodite
+binaries/aphrodite.exe
 binaries/libaphrodite_hermes.dylib
 binaries/libaphrodite.dylib
 binaries/libaphrodite_hermes.so
