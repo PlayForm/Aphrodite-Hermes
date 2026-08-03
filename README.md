@@ -8,7 +8,7 @@ compact, structured previews. The agent sees 15 tokens of metadata instead of
 500 tokens of raw text - and retrieves the full content only when it actually
 needs it. **All compression logic runs in the Rust dylib.**
 
-[![plugin](https://img.shields.io/badge/plugin-v2.0.8-purple)](plugin.yaml)
+[![plugin](https://img.shields.io/badge/plugin-v2.0.10-purple)](plugin.yaml)
 [![hermes](https://img.shields.io/badge/hermes-≥0.16.0-blue)](https://github.com/NousResearch/hermes-agent)
 [![license](https://img.shields.io/badge/license-CC0--1.0-lightgrey)](LICENSE)
 
