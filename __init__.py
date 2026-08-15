@@ -443,6 +443,40 @@ def _start_proxy():
 
 # ── Plugin registration ──
 
+_atexit_registered = False
+
+
+def _register_atexit_cleanup() -> None:
+    """Register a one-shot atexit handler that removes this process's own
+    hot-reload copy on interpreter shutdown, and reaps any copies left by
+    processes that have since died. Idempotent."""
+    global _atexit_registered
+    if _atexit_registered:
+        return
+    _atexit_registered = True
+    import atexit
+
+    def _cleanup() -> None:
+        # Remove our own final-generation copy.
+        if _dylib_copy_path is not None:
+            with contextlib.suppress(OSError):
+                os.remove(_dylib_copy_path)
+        # And sweep up anything abandoned by dead processes.
+        _reap_stale_hotreloads()
+
+    atexit.register(_cleanup)
+
+
+# Startup sweep: reclaim hot-reload copies abandoned by processes that died
+# before they could clean up (e.g. crashed/terminated Hermes sessions). This
+# replaces the old in-tree `.hotreload/` (which grew to ~19 GB across many
+# terminated processes) with a bounded, reaped cache.
+try:
+    _reap_stale_hotreloads()
+except Exception:
+    pass
+
+
 def register(ctx: Any) -> None:
     """Register hooks, tools, and (optionally) a context engine with Hermes.
 
