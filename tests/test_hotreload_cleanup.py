@@ -14,9 +14,9 @@ without a pytest dependency.
 
 import importlib.util
 import os
-import sys
 import tempfile
 import unittest
+from contextlib import suppress
 from pathlib import Path
 
 # Load the plugin shim as a module without triggering Hermes registration.
@@ -52,14 +52,10 @@ class HotreloadCleanupTest(unittest.TestCase):
     def tearDown(self):
         _plugin._hotreload_dir = self._saved  # type: ignore[assignment]
         for f in self.tmp.glob("*"):
-            try:
+            with suppress(OSError):
                 f.unlink()
-            except OSError:
-                pass
-        try:
+        with suppress(OSError):
             self.tmp.rmdir()
-        except OSError:
-            pass
 
     def test_dead_pid_copies_are_reaped(self):
         dead_pids = (2**31 - 1, 2**31 - 2, 40000)
