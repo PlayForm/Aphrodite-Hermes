@@ -18,7 +18,24 @@ REPO="${REPO:-PlayForm/Aphrodite}"
 BIN_VERSION="${1:-}"
 TARGET="${2:-}"
 
-# ── Auto-detect version ──
+# ── Validate version format ──────────────────────────────────────
+# Guard against a malformed BINARY_VERSION (e.g. a stray line-number
+# artifact like `1|1.3.9`) producing an invalid release URL and breaking
+# the update path. Enforce a strict semver-ish pattern before downloading.
+VERSION_RE='^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$'
+validate_version() {
+	local v="$1"
+	case "$v" in
+		''|.|v) echo "ERROR: empty/invalid BINARY_VERSION '$v'"; return 1 ;;
+	esac
+	if [[ ! "$v" =~ $VERSION_RE ]]; then
+		echo "ERROR: BINARY_VERSION '$v' does not match the required pattern"
+		echo "  expected: ^[0-9]+.[0-9]+.[0-9]+([-.][0-9A-Za-z.]+)?\$"
+		echo "  (a malformed value can produce an invalid release URL and break the update path)"
+		return 1
+	fi
+	return 0
+}
 if [[ -z "$BIN_VERSION" ]]; then
 	# 1. BINARY_VERSION file - deployed with the plugin, always correct
 	if [[ -f "$SCRIPT_DIR/BINARY_VERSION" ]]; then
@@ -49,6 +66,9 @@ if [[ -z "$BIN_VERSION" ]]; then
 	echo "  Or create a BINARY_VERSION file in $(dirname "$0")"
 	exit 1
 fi
+
+# ── Guard: reject a malformed BINARY_VERSION before we build a URL from it ──
+validate_version "$BIN_VERSION" || exit 1
 
 # ── Auto-detect platform ──
 if [[ -z "$TARGET" ]]; then

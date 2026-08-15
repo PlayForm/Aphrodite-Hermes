@@ -10,6 +10,7 @@ provides_hooks:
   - pre_llm_call
   - transform_terminal_output
   - post_llm_call
+  - pre_tool_call
 provides_tools:
   - aphrodite_retrieve
   - aphrodite_compress
@@ -24,7 +25,6 @@ provides_tools:
   - aphrodite_reclassify
   - aphrodite_prefetch
   - aphrodite_prefetch_status
-  - aphrodite_navigate
 provides_context_engine: true
 # Engine threshold: -1=always compress, 0=disabled, >0=fill%
 # Ships 9 skills: auto-expand-testing, benchmarking, cargo-upgrade, development-lessons,
