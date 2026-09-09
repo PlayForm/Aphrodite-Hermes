@@ -62,13 +62,40 @@ def _hotreload_dir() -> str:
 
 
 def _pid_alive(pid: int) -> bool:
-    """Best-effort "is this PID still running?" check, cross-platform."""
+    """Best-effort "is this PID still running?" check, cross-platform.
+
+    Windows MUST NOT use ``os.kill(pid, 0)``: CPython's ``os.kill`` on Windows
+    is ``TerminateProcess`` for any signal other than ``CTRL_C_EVENT`` /
+    ``CTRL_BREAK_EVENT``, and ``0`` is neither - so "probe" *kills* the target.
+    This reaper runs in every process that loads the plugin (CLI runs, kanban
+    workers), and the tombstones it walks are named after other live Hermes
+    processes; the gateway was being terminated on every worker spawn.
+    """
     if pid <= 0:
         return False
     # Linux: /proc/<pid> exists iff the process is alive.
     if os.path.isdir(f"/proc/{pid}"):
         return True
-    # macOS/BSD/Windows: signal 0 probes existence without side effects.
+    if sys.platform == "win32":
+        import ctypes
+        import ctypes.wintypes as wt
+
+        SYNCHRONIZE = 0x00100000
+        STILL_ACTIVE = 259
+        k32 = ctypes.windll.kernel32
+        k32.OpenProcess.restype = wt.HANDLE
+        h = k32.OpenProcess(SYNCHRONIZE | 0x1000, False, pid)  # + PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            # ERROR_ACCESS_DENIED (5): exists but not ours - treat as alive.
+            return ctypes.get_last_error() == 5 or k32.GetLastError() == 5
+        try:
+            code = wt.DWORD()
+            if k32.GetExitCodeProcess(h, ctypes.byref(code)):
+                return code.value == STILL_ACTIVE
+            return True
+        finally:
+            k32.CloseHandle(h)
+    # macOS/BSD: signal 0 probes existence without side effects.
     try:
         os.kill(pid, 0)
         return True
