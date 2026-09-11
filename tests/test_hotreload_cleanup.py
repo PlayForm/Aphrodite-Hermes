@@ -47,7 +47,7 @@ class HotreloadCleanupTest(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp(prefix="aphrodite-hotreload-test-"))
         self._saved = _plugin._hotreload_dir
         _plugin._hotreload_dir = lambda: str(self.tmp)  # type: ignore[assignment]
-        self.prefix = "libaphrodite_hermes.dylib"
+        self.prefix = os.path.basename(_plugin._DYLIB_PATH)  # platform-correct (.dll/.so/.dylib)
 
     def tearDown(self):
         _plugin._hotreload_dir = self._saved  # type: ignore[assignment]
@@ -93,6 +93,34 @@ class HotreloadCleanupTest(unittest.TestCase):
         self.assertTrue(_pid_alive(os.getpid()))
         self.assertFalse(_pid_alive(-1))
         self.assertFalse(_pid_alive(2**31 - 1))  # implausible PID
+
+    def test_pid_alive_probe_does_not_kill_a_live_foreign_process(self):
+        """The probe must be side-effect free on EVERY platform.
+
+        On Windows ``os.kill(pid, 0)`` is ``TerminateProcess``; using it as an
+        "is alive?" check terminated whichever Hermes process (the gateway, in
+        practice) had left a tombstone in the hotreload dir.
+        """
+        import subprocess
+        import sys
+        import time
+
+        victim = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+        try:
+            time.sleep(0.5)
+            self.assertTrue(_pid_alive(victim.pid), "live child reported dead")
+            time.sleep(0.5)
+            self.assertIsNone(victim.poll(), "liveness probe terminated the process it probed")
+            # And the reaper, which is what actually walks foreign PIDs.
+            gen = _drop(self.tmp, self.prefix, victim.pid, 1)
+            _reap()
+            time.sleep(0.5)
+            self.assertIsNone(victim.poll(), "reaper terminated a live foreign process")
+            self.assertTrue(gen.exists(), "live foreign pid's copy must survive the reaper")
+        finally:
+            victim.kill()
+            victim.wait(timeout=10)
+        self.assertFalse(_pid_alive(victim.pid), "killed child still reported alive")
 
     def test_cache_dir_is_relocatable_outside_plugin_tree(self):
         d = Path(_hotreload_dir())

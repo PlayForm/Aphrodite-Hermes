@@ -69,13 +69,58 @@ def _hotreload_dir() -> str:
 
 
 def _pid_alive(pid: int) -> bool:
-    """Best-effort "is this PID still running?" check, cross-platform."""
+    """Best-effort "is this PID still running?" check, cross-platform.
+
+    Windows MUST NOT use ``os.kill(pid, 0)``: CPython's ``os.kill`` on Windows
+    is ``TerminateProcess`` for any signal other than ``CTRL_C_EVENT`` /
+    ``CTRL_BREAK_EVENT``, and ``0`` is neither - so "probe" *kills* the target.
+    This reaper runs in every process that loads the plugin (CLI runs, kanban
+    workers), and the tombstones it walks are named after other live Hermes
+    processes; the gateway was being terminated on every worker spawn.
+    """
     if pid <= 0:
         return False
     # Linux: /proc/<pid> exists iff the process is alive.
     if os.path.isdir(f"/proc/{pid}"):
         return True
-    # macOS/BSD/Windows: signal 0 probes existence without side effects.
+    if sys.platform == "win32":
+        try:
+            import ctypes.wintypes as wt
+
+            SYNCHRONIZE = 0x00100000
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            STILL_ACTIVE = 259
+            ERROR_ACCESS_DENIED = 5
+            k32 = ctypes.windll.kernel32
+            k32.OpenProcess.argtypes = [wt.DWORD, wt.BOOL, wt.DWORD]
+            k32.OpenProcess.restype = wt.HANDLE
+            k32.GetExitCodeProcess.argtypes = [wt.HANDLE, ctypes.POINTER(wt.DWORD)]
+            k32.GetExitCodeProcess.restype = wt.BOOL
+            k32.CloseHandle.argtypes = [wt.HANDLE]
+            k32.CloseHandle.restype = wt.BOOL
+            h = k32.OpenProcess(
+                SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION, False, pid
+            )
+            if not h:
+                # NULL handle: process not found (or access denied).
+                # ERROR_ACCESS_DENIED: exists but isn't ours - treat as alive
+                # (don't reap it).
+                return k32.GetLastError() == ERROR_ACCESS_DENIED
+            try:
+                code = wt.DWORD()
+                if k32.GetExitCodeProcess(h, ctypes.byref(code)):
+                    return code.value == STILL_ACTIVE
+                return True
+            finally:
+                k32.CloseHandle(h)
+        except Exception:
+            # Defensive: never reap what we cannot probe. NEVER fall back to
+            # os.kill on Windows (it is TerminateProcess and kills the target).
+            _log.warning(
+                "_pid_alive: win32 probe failed for pid %s; treating as alive", pid
+            )
+            return True
+    # macOS/BSD: signal 0 probes existence without side effects.
     try:
         os.kill(pid, 0)
         return True
