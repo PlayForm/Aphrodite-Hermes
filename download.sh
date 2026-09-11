@@ -182,7 +182,8 @@ fetch_and_validate() {
 		[[ -f "${dest}.bak" ]] && mv "${dest}.bak" "${dest}"
 		return 1
 	fi
-	magic=$(head -c4 "${dest}" | xxd -p | tr -d '\n')
+	# POSIX od one-liner (no xxd/vim dependency): -An = no addresses, -tx1 = 1-byte hex
+	magic=$(head -c4 "${dest}" | od -An -tx1 | tr -d ' \n')
 	case "$magic" in
 		7f454c46) valid=1 ;;                              # ELF
 		cffaedfe|feedfacf|cefaedfe|cafebabe) valid=1 ;;   # Mach-O

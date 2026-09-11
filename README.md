@@ -36,6 +36,25 @@ toolchain required.
 > [Troubleshooting](https://github.com/PlayForm/Aphrodite/blob/Current/docs/install/troubleshooting.md)
 > if the proxy doesn't come up after enabling the plugin.
 
+### LLM provider configuration (required)
+
+The aphrodite proxy is an OpenAI-compatible LLM API proxy - it forwards
+requests upstream - so it needs **its own** provider credentials even though
+Hermes already has a provider configured. The plugin **cannot** read Hermes'
+provider config, and there is **no keyless / compression-only mode**: without a
+key the proxy refuses to start and the plugin is unusable.
+
+```bash
+export APHRODITE_API_KEY="sk-..."                                  # REQUIRED
+export APHRODITE_API_URL="https://api.openai.com"                  # optional
+export APHRODITE_MODEL="default-model"                             # optional
+```
+
+Alternatives: run `aphrodite setup`, or add `api_key` / `api_url` / `model` to
+`~/.hermes/aphrodite/aphrodite.toml`. If the proxy fails to start,
+`~/.hermes/aphrodite/proxy-stderr.log` shows the reason - `no API key
+configured` means the key is missing.
+
 ### What changes after install
 
 After installing and launching Hermes once:
@@ -154,6 +173,27 @@ ccr_marker_hint = true
 ```
 
 Env var overrides: `APHRODITE_ENGINE_THRESHOLD_PCT`, `APHRODITE_CONTEXT_ENGINE`, etc.
+
+`APHRODITE_HOME` relocates the plugin's Python-side data (hot-reload dylib
+copies, `proxy-stderr.log`) from the default `~/.hermes/aphrodite`; the Rust
+binary does **not** read it - `aphrodite.toml` / `ccr.db` lookup stays put.
+
+On registration the plugin probes both health endpoints (`:9797`, `:9798`)
+and **reuses an already-running proxy pair** instead of launching a second
+instance, so extra Hermes processes no longer pile `failed to bind listener`
+noise into `proxy-stderr.log`. Set `APHRODITE_NO_AUTO_LAUNCH=1` to skip the
+auto-launch entirely, e.g. when a `cargo watch` dev loop runs the proxy
+itself.
+
+### Directives
+
+Custom behavioral directives are `name.md` files in
+`~/.hermes/aphrodite/directives/` - an empty file means an intentionally
+empty directive. The plugin ships its own `directives/` set, auto-exposed
+to the dylib via `APHRODITE_DIRECTIVES_DIR` (override the env var to point
+elsewhere). If no directive directory is found, the compiled built-in set
+loads as a fallback - its activation is logged. Manage them at runtime with
+`aphrodite_directive` (`list`/`swap`/`add`/`load`/`remove`/`reset`).
 
 ---
 
