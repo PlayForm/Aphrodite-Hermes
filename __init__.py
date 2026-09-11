@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import types
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
