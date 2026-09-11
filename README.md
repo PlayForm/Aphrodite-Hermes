@@ -174,26 +174,7 @@ ccr_marker_hint = true
 
 Env var overrides: `APHRODITE_ENGINE_THRESHOLD_PCT`, `APHRODITE_CONTEXT_ENGINE`, etc.
 
-`APHRODITE_HOME` relocates the plugin's Python-side data (hot-reload dylib
-copies, `proxy-stderr.log`) from the default `~/.hermes/aphrodite`; the Rust
-binary does **not** read it - `aphrodite.toml` / `ccr.db` lookup stays put.
-
-On registration the plugin probes both health endpoints (`:9797`, `:9798`)
-and **reuses an already-running proxy pair** instead of launching a second
-instance, so extra Hermes processes no longer pile `failed to bind listener`
-noise into `proxy-stderr.log`. Set `APHRODITE_NO_AUTO_LAUNCH=1` to skip the
-auto-launch entirely, e.g. when a `cargo watch` dev loop runs the proxy
-itself.
-
-### Directives
-
-Custom behavioral directives are `name.md` files in
-`~/.hermes/aphrodite/directives/` - an empty file means an intentionally
-empty directive. The plugin ships its own `directives/` set, auto-exposed
-to the dylib via `APHRODITE_DIRECTIVES_DIR` (override the env var to point
-elsewhere). If no directive directory is found, the compiled built-in set
-loads as a fallback - its activation is logged. Manage them at runtime with
-`aphrodite_directive` (`list`/`swap`/`add`/`load`/`remove`/`reset`).
+`APHRODITE_HOME` relocates the plugin's Python-side data (hot-reload dylib copies, `proxy-stderr.log`) from the default `~/.hermes/aphrodite`; `aphrodite.toml`/`ccr.db` lookup by the Rust proxy is unaffected.
 
 ---
 

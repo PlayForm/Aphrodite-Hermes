@@ -36,13 +36,6 @@ _DYLIB_PATH = os.environ.get(
 _BINARY_NAME = "aphrodite.exe" if sys.platform == "win32" else "aphrodite"
 _BINARY_PATH = os.environ.get("APHRODITE_BINARY_PATH", str(_PLUGIN_DIR / "binaries" / _BINARY_NAME))
 
-# The shipped directives/ set was unreachable from the Rust dylib: it is
-# ctypes-loaded, so its current_exe resolves to the host process (Hermes),
-# not this plugin directory. Export the shipped directives dir as the
-# dylib's first discovery candidate so the set is found; os.environ.setdefault
-# keeps a user-provided APHRODITE_DIRECTIVES_DIR override authoritative.
-os.environ.setdefault("APHRODITE_DIRECTIVES_DIR", str(_PLUGIN_DIR / "directives"))
-
 # ── Per-process dylib state ──
 # Hermes builds one PluginManager per Hermes home (root home + every
 # profile) and exec_module()s this shim once per home under a distinct
@@ -74,18 +67,9 @@ def _process_state() -> types.ModuleType:
     # half-swapped reference, compounding the split-brain hazard below (F4).
     holder.lock = threading.Lock()  # type: ignore[attr-defined]
     holder.atexit_registered = False  # type: ignore[attr-defined]
-    try:
-        # dict.setdefault is atomic under the GIL, so two shim copies
-        # importing concurrently still converge on a single holder.
-        return sys.modules.setdefault(_STATE_MODULE_NAME, holder)
-    except Exception as e:
-        # Defensive: never crash registration on a poisoned sys.modules -
-        # fall back to a private holder (each shim copy then loads its own
-        # image; dlopen memoizes by path so handles still converge).
-        _log.warning(
-            "_process_state: sys.modules unavailable (%s); using a private holder", e
-        )
-        return holder
+    # dict.setdefault is atomic under the GIL, so two shim copies importing
+    # concurrently still converge on a single holder.
+    return sys.modules.setdefault(_STATE_MODULE_NAME, holder)
 
 
 _state = _process_state()
@@ -98,14 +82,10 @@ def _data_dir() -> Path:
     Only the Python side honours the override - the Rust proxy/dylib keep
     resolving ``aphrodite.toml`` and ``ccr.db`` on their own.
     """
-    try:
-        override = os.environ.get("APHRODITE_HOME")
-        if override:
-            return Path(override).expanduser()
-        return Path.home() / ".hermes" / "aphrodite"
-    except Exception as e:
-        _log.warning("_data_dir: %s; falling back to ~/.hermes/aphrodite", e)
-        return Path.home() / ".hermes" / "aphrodite"
+    override = os.environ.get("APHRODITE_HOME")
+    if override:
+        return Path(override).expanduser()
+    return Path.home() / ".hermes" / "aphrodite"
 
 
 def _hotreload_dir() -> str:
@@ -475,100 +455,14 @@ def _parse_port_env(var: str, default: int) -> int:
         return default
 
 
-def _tail_log(path: Path, n: int = 15) -> str:
-    """Last `n` lines of a log file; "(no stderr log yet)" when unreadable."""
-    with contextlib.suppress(OSError):
-        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
-        return "\n".join(lines[-n:])
-    return "(no stderr log yet)"
-
-
-def _ensure_binaries() -> None:
-    """Fetch the proxy binary + dylib via download.sh when either is missing.
-
-    README.md has always promised binaries are fetched automatically; this
-    makes that promise real. Returns immediately when both files exist, so
-    repeated register() calls never re-download. APHRODITE_NO_AUTO_DOWNLOAD
-    (1/true, like _env_bool) opts out for offline/dev-loop setups.
-    """
-    if _env_bool("APHRODITE_NO_AUTO_DOWNLOAD"):
-        return
-    if os.path.exists(_BINARY_PATH) and os.path.exists(_DYLIB_PATH):
-        return
-    try:
-        result = subprocess.run(
-            ["bash", str(_PLUGIN_DIR / "download.sh")],
-            timeout=180,
-            capture_output=True,
-            text=True,
-            errors="replace",
-        )
-    except Exception as e:
-        _log.warning(
-            "failed to run %s (%s) - run download.sh manually to fetch the "
-            "aphrodite binaries",
-            _PLUGIN_DIR / "download.sh",
-            e,
-        )
-        return
-    if result.returncode != 0:
-        tail = "\n".join(
-            ((result.stdout or "") + (result.stderr or "")).splitlines()[-15:]
-        )
-        _log.warning(
-            "download.sh exited %d - run download.sh manually to fetch the "
-            "aphrodite binaries; output tail:\n%s",
-            result.returncode,
-            tail,
-        )
-
-
-_health_opener: Any = None
-
-
 def _proxy_healthy(port: int) -> bool:
-    """One direct GET /health against a local proxy port; True only on a
-    CONFIRMED aphrodite answer.
-
-    MEDIUM (PR#8 review): the decisional pre-launch probe must not route
-    through the ambient HTTP(S)_PROXY env vars - a corporate proxy
-    answering 200 on the health path would make the probe falsely report
-    healthy and skip launching the real proxy, silently killing CCR. An
-    opener built with ProxyHandler({}) (empty proxy map) forces direct
-    connections only. And the bare status code is not enough either: the
-    response body must be JSON with ``status == "healthy"`` (the Rust
-    health endpoint always answers 200 with that field), so an unrelated
-    service squatting on the port cannot cause a false skip. Any error,
-    timeout, or foreign body is unhealthy - the probe can only skip a
-    launch on a confirmed aphrodite answer.
-    """
+    """One GET /health against a local proxy port; True iff it answered 200."""
     import urllib.request
 
-    global _health_opener
-    if _health_opener is None:
-        try:
-            _health_opener = urllib.request.build_opener(
-                urllib.request.ProxyHandler({})
-            )
-        except Exception as e:
-            # Defensive: never skip on an opener failure - report and treat
-            # as unhealthy so the launch still proceeds.
-            _log.warning(
-                "_proxy_healthy: cannot build direct opener (%s); treating as unhealthy",
-                e,
-            )
-            return False
     try:
         req = urllib.request.Request(f"http://127.0.0.1:{port}/health", method="GET")
-        with _health_opener.open(req, timeout=0.5) as resp:
-            if resp.status != 200:
-                return False
-            body = resp.read(4096).decode("utf-8", errors="replace")
-            try:
-                payload = json.loads(body)
-            except Exception:
-                return False
-            return isinstance(payload, dict) and payload.get("status") == "healthy"
+        with urllib.request.urlopen(req, timeout=0.5) as resp:
+            return resp.status == 200
     except Exception:
         return False
 
@@ -582,8 +476,7 @@ def _start_proxy():
     unconditionally made each extra process spawn a binary that immediately
     died on `failed to bind listener` (os error 10048 on Windows), appending
     that plus a `no API key configured` line to proxy-stderr.log every time.
-    If both proxies already answer a CONFIRMED aphrodite health body (see
-    `_proxy_healthy`), the launch is skipped at INFO level.
+    If both proxies already answer, the launch is skipped at INFO level.
 
     Pipes stderr to a log file (not DEVNULL) so startup errors are
     diagnosable.  After launch, detects immediate death (stderr tail +
@@ -601,11 +494,6 @@ def _start_proxy():
         _log.info("APHRODITE_NO_AUTO_LAUNCH set - skipping proxy auto-launch")
         return
 
-    # Fetch the proxy binary + dylib on first use if either is missing
-    # (download.sh verifies SHA-256 and writes binaries/). No-op when both
-    # already exist - repeated register() calls don't re-download.
-    _ensure_binaries()
-
     # Read custom ports from env vars (matching the Rust dylib's
     # configured_ports() in aphrodite-hermes/src/lib.rs).
     _cache_port = _parse_port_env("APHRODITE_CACHE_PORT", 9797)
@@ -615,9 +503,7 @@ def _start_proxy():
         ("token", _token_port),
     ]
 
-    # ── Pre-launch probe: skip launch iff another process already owns
-    # BOTH proxies with a confirmed aphrodite answer (never on error,
-    # never on a foreign body - see _proxy_healthy) ──
+    # ── Pre-launch probe: skip if another process already owns the proxy ──
     up: set[str] = {name for name, port in proxies if _proxy_healthy(port)}
     if len(up) == len(proxies):
         _log.info(
@@ -641,26 +527,7 @@ def _start_proxy():
     # to open database file") are visible.  Previously stderr was piped
     # to DEVNULL, making every startup failure silent.
     log_dir = _data_dir()
-    try:
-        log_dir.mkdir(parents=True, exist_ok=True)
-    except OSError as e:
-        # Defensive: a weird/unwritable APHRODITE_HOME must never crash
-        # registration - fall back to the default location, then give up
-        # with a warning rather than raising.
-        _log.warning(
-            "aphrodite data dir %s unusable (%s); falling back to "
-            "~/.hermes/aphrodite",
-            log_dir,
-            e,
-        )
-        log_dir = Path.home() / ".hermes" / "aphrodite"
-        try:
-            log_dir.mkdir(parents=True, exist_ok=True)
-        except OSError as e2:
-            _log.warning(
-                "cannot create %s either (%s) - skipping proxy launch", log_dir, e2
-            )
-            return
+    log_dir.mkdir(parents=True, exist_ok=True)
     try:
         with open(log_dir / "proxy-stderr.log", "a") as stderr_log:
             proc = subprocess.Popen(
@@ -715,30 +582,13 @@ def _start_proxy():
 
     for name, port in proxies:
         if name not in up:
-            if proc.poll() is not None:
-                _log.warning(
-                    "aphrodite proxy process exited early (rc=%s) while "
-                    "waiting for %s on :%d; last stderr:",
-                    proc.poll(),
-                    name,
-                    port,
-                )
-                tail = _tail_log(log_dir / "proxy-stderr.log")
-                _log.warning("%s", tail)
-                if "API key" in tail:
-                    _log.warning(
-                        "set APHRODITE_API_KEY env var, run `aphrodite setup`, "
-                        "or add api_key to the TOML at "
-                        "~/.hermes/aphrodite/aphrodite.toml"
-                    )
-            else:
-                _log.warning(
-                    "aphrodite %s proxy on :%d did not become healthy within 5s "
-                    "- check %s for errors",
-                    name,
-                    port,
-                    log_dir / "proxy-stderr.log",
-                )
+            _log.warning(
+                "aphrodite %s proxy on :%d did not become healthy within 5s "
+                "- check %s for errors",
+                name,
+                port,
+                log_dir / "proxy-stderr.log",
+            )
 
 
 # ── Plugin registration ──
