@@ -36,6 +36,25 @@ toolchain required.
 > [Troubleshooting](https://github.com/PlayForm/Aphrodite/blob/Current/docs/install/troubleshooting.md)
 > if the proxy doesn't come up after enabling the plugin.
 
+### LLM provider configuration (required)
+
+The aphrodite proxy is an OpenAI-compatible LLM API proxy - it forwards
+requests upstream - so it needs **its own** provider credentials even though
+Hermes already has a provider configured. The plugin **cannot** read Hermes'
+provider config, and there is **no keyless / compression-only mode**: without a
+key the proxy refuses to start and the plugin is unusable.
+
+```bash
+export APHRODITE_API_KEY="sk-..."                                  # REQUIRED
+export APHRODITE_API_URL="https://api.openai.com"                  # optional
+export APHRODITE_MODEL="default-model"                             # optional
+```
+
+Alternatives: run `aphrodite setup`, or add `api_key` / `api_url` / `model` to
+`~/.hermes/aphrodite/aphrodite.toml`. If the proxy fails to start,
+`~/.hermes/aphrodite/proxy-stderr.log` shows the reason - `no API key
+configured` means the key is missing.
+
 ### What changes after install
 
 After installing and launching Hermes once:

@@ -35,4 +35,5 @@ install_message: |
   Proxies: token (:9798, SQLite, >1KB), cache (:9797, in-memory, >8KB).
   Engine: context_engine=true in aphrodite.toml (default-on).
   Download: bash download.sh (fetches prebuilt binary + dylib from GitHub Releases).
+  LLM API key: REQUIRED - set APHRODITE_API_KEY (or 'aphrodite setup' / api_key in ~/.hermes/aphrodite/aphrodite.toml). Hermes' provider config is NOT reused - see README 'LLM provider configuration'.
   Tools: retrieve, compress, stats, rebuild, files, diff, search, directive, test, catalog, reclassify, prefetch, prefetch_status
