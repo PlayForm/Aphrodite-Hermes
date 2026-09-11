@@ -174,6 +174,16 @@ ccr_marker_hint = true
 
 Env var overrides: `APHRODITE_ENGINE_THRESHOLD_PCT`, `APHRODITE_CONTEXT_ENGINE`, etc.
 
+### Directives
+
+Custom behavioral directives are `name.md` files in
+`~/.hermes/aphrodite/directives/` - an empty file means an intentionally
+empty directive. The plugin ships its own `directives/` set, auto-exposed
+to the dylib via `APHRODITE_DIRECTIVES_DIR` (override the env var to point
+elsewhere). If no directive directory is found, the compiled built-in set
+loads as a fallback - its activation is logged. Manage them at runtime with
+`aphrodite_directive` (`list`/`swap`/`add`/`load`/`remove`/`reset`).
+
 ---
 
 ## Dev Install (Rust source)
