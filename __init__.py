@@ -167,6 +167,26 @@ def _load_fresh_copy(src_path: str) -> str:
     return dst
 
 
+def _dylib_candidates(plugin_dir: Path) -> list[str]:
+    """Ordered dylib candidates, env override first, parent-depth guarded.
+
+    Shallow installs (e.g. /opt/Aphrodite-Hermes) have fewer than 4
+    parents; the monorepo target/release fallbacks simply do not exist
+    there, so indexing is guarded instead of crashing (issue 5).
+    """
+    plugin_dir = Path(plugin_dir).resolve()
+    candidates = [
+        _DYLIB_PATH,  # APHRODITE_HERMES_DYLIB_PATH or binaries default - wins when it exists
+        str(plugin_dir / "binaries" / _DYLIB_NAME),
+        str(plugin_dir.parent / "binaries" / _DYLIB_NAME),
+    ]
+    parents = plugin_dir.parents
+    for depth in (2, 3):
+        if depth < len(parents):
+            candidates.append(str(parents[depth] / "target" / "release" / _DYLIB_NAME))
+    return candidates
+
+
 def _load_dylib() -> ctypes.CDLL:
     """Load libaphrodite_hermes.dylib with ctypes. Hot-reloads on mtime change."""
     global _dylib, _dylib_mtime, _dylib_copy_path
@@ -174,24 +194,7 @@ def _load_dylib() -> ctypes.CDLL:
     with _dylib_lock:
         # Find current dylib path
         path = _DYLIB_PATH
-        candidates = [
-            path,
-            str(_PLUGIN_DIR / "binaries" / _DYLIB_NAME),
-            str(_PLUGIN_DIR.parent / "binaries" / _DYLIB_NAME),
-        ]
-        # Monorepo dev-build fallback: for `<repo>/plugins/aphrodite/__init__.py`,
-        # parents[2] is `<repo>` (where `target/release` actually lives) - not
-        # darwin-specific (Linux dev builds want the .so equally), and
-        # parents[3] covers a one-deeper nesting some checkouts use.
-        # Length-guard the parents indexing: shallow installs (e.g.
-        # /opt/Aphrodite-Hermes) sit near the filesystem root where the
-        # parent chain runs out - must never raise IndexError there.
-        parents = Path(__file__).resolve().parents
-        for depth in (2, 3):
-            if depth < len(parents):
-                candidates.append(
-                    str(parents[depth] / "target" / "release" / _DYLIB_NAME)
-                )
+        candidates = _dylib_candidates(_PLUGIN_DIR)
         for p in candidates:
             if os.path.exists(p):
                 path = p
@@ -652,10 +655,12 @@ def register(ctx: Any) -> None:
     # `~/.hermes/aphrodite`), the old hardcoded `parent.parent.parent` guess
     # landed on `~/skills` (never exists) - 0 of the 9 advertised skills ever
     # registered outside a monorepo checkout, with only an info log to notice.
-    _skills_dir_candidates = [
-        _PLUGIN_DIR / "skills",
-        _PLUGIN_DIR.parents[1] / "skills",
-        _PLUGIN_DIR.parents[2] / "skills",
+    # Slicing never raises: shallow installs (e.g. /opt/Aphrodite-Hermes) have
+    # fewer than 3 parents, and parents[1:3] preserves deep-install semantics
+    # (repo-root skills sit at parents[1] for a plugin at
+    # <repo>/plugins/aphrodite) - issue 5.
+    _skills_dir_candidates = [_PLUGIN_DIR / "skills"] + [
+        p / "skills" for p in _PLUGIN_DIR.parents[1:3]
     ]
     _skills_dir = next((p for p in _skills_dir_candidates if p.is_dir()), None)
     if _skills_dir is None:
