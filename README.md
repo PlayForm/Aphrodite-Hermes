@@ -155,6 +155,8 @@ ccr_marker_hint = true
 
 Env var overrides: `APHRODITE_ENGINE_THRESHOLD_PCT`, `APHRODITE_CONTEXT_ENGINE`, etc.
 
+`APHRODITE_HOME` relocates the plugin's Python-side data (hot-reload dylib copies, `proxy-stderr.log`) from the default `~/.hermes/aphrodite`; `aphrodite.toml`/`ccr.db` lookup by the Rust proxy is unaffected.
+
 ---
 
 ## Dev Install (Rust source)
