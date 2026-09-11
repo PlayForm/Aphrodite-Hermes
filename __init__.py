@@ -104,13 +104,58 @@ def _hotreload_dir() -> str:
 
 
 def _pid_alive(pid: int) -> bool:
-    """Best-effort "is this PID still running?" check, cross-platform."""
+    """Best-effort "is this PID still running?" check, cross-platform.
+
+    Windows MUST NOT use ``os.kill(pid, 0)``: CPython's ``os.kill`` on Windows
+    is ``TerminateProcess`` for any signal other than ``CTRL_C_EVENT`` /
+    ``CTRL_BREAK_EVENT``, and ``0`` is neither - so "probe" *kills* the target.
+    This reaper runs in every process that loads the plugin (CLI runs, kanban
+    workers), and the tombstones it walks are named after other live Hermes
+    processes; the gateway was being terminated on every worker spawn.
+    """
     if pid <= 0:
         return False
     # Linux: /proc/<pid> exists iff the process is alive.
     if os.path.isdir(f"/proc/{pid}"):
         return True
-    # macOS/BSD/Windows: signal 0 probes existence without side effects.
+    if sys.platform == "win32":
+        try:
+            import ctypes.wintypes as wt
+
+            SYNCHRONIZE = 0x00100000
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            STILL_ACTIVE = 259
+            ERROR_ACCESS_DENIED = 5
+            k32 = ctypes.windll.kernel32
+            k32.OpenProcess.argtypes = [wt.DWORD, wt.BOOL, wt.DWORD]
+            k32.OpenProcess.restype = wt.HANDLE
+            k32.GetExitCodeProcess.argtypes = [wt.HANDLE, ctypes.POINTER(wt.DWORD)]
+            k32.GetExitCodeProcess.restype = wt.BOOL
+            k32.CloseHandle.argtypes = [wt.HANDLE]
+            k32.CloseHandle.restype = wt.BOOL
+            h = k32.OpenProcess(
+                SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION, False, pid
+            )
+            if not h:
+                # NULL handle: process not found (or access denied).
+                # ERROR_ACCESS_DENIED: exists but isn't ours - treat as alive
+                # (don't reap it).
+                return k32.GetLastError() == ERROR_ACCESS_DENIED
+            try:
+                code = wt.DWORD()
+                if k32.GetExitCodeProcess(h, ctypes.byref(code)):
+                    return code.value == STILL_ACTIVE
+                return True
+            finally:
+                k32.CloseHandle(h)
+        except Exception:
+            # Defensive: never reap what we cannot probe. NEVER fall back to
+            # os.kill on Windows (it is TerminateProcess and kills the target).
+            _log.warning(
+                "_pid_alive: win32 probe failed for pid %s; treating as alive", pid
+            )
+            return True
+    # macOS/BSD: signal 0 probes existence without side effects.
     try:
         os.kill(pid, 0)
         return True
@@ -202,6 +247,26 @@ def _load_fresh_copy(src_path: str) -> str:
     return dst
 
 
+def _dylib_candidates(plugin_dir: Path) -> list[str]:
+    """Ordered dylib candidates, env override first, parent-depth guarded.
+
+    Shallow installs (e.g. /opt/Aphrodite-Hermes) have fewer than 4
+    parents; the monorepo target/release fallbacks simply do not exist
+    there, so indexing is guarded instead of crashing (issue 5).
+    """
+    plugin_dir = Path(plugin_dir).resolve()
+    candidates = [
+        _DYLIB_PATH,  # APHRODITE_HERMES_DYLIB_PATH or binaries default - wins when it exists
+        str(plugin_dir / "binaries" / _DYLIB_NAME),
+        str(plugin_dir.parent / "binaries" / _DYLIB_NAME),
+    ]
+    parents = plugin_dir.parents
+    for depth in (2, 3):
+        if depth < len(parents):
+            candidates.append(str(parents[depth] / "target" / "release" / _DYLIB_NAME))
+    return candidates
+
+
 def _load_dylib() -> ctypes.CDLL:
     """Load libaphrodite_hermes.dylib with ctypes. Hot-reloads on mtime change.
 
@@ -212,23 +277,14 @@ def _load_dylib() -> ctypes.CDLL:
     with _state.lock:
         # Find current dylib path
         path = _DYLIB_PATH
-        candidates = [
-            path,
-            str(_PLUGIN_DIR / "binaries" / _DYLIB_NAME),
-            str(_PLUGIN_DIR.parent / "binaries" / _DYLIB_NAME),
-        ]
-        # Monorepo dev-build fallback: for `<repo>/plugins/aphrodite/__init__.py`,
-        # parents[2] is `<repo>` (where `target/release` actually lives) - not
-        # darwin-specific (Linux dev builds want the .so equally), and
-        # parents[3] covers a one-deeper nesting some checkouts use.
-        for depth in (2, 3):
-            candidates.append(
-                str(Path(__file__).resolve().parents[depth] / "target" / "release" / _DYLIB_NAME)
-            )
+        candidates = _dylib_candidates(_PLUGIN_DIR)
         for p in candidates:
             if os.path.exists(p):
                 path = p
                 break
+        # Auto-fetch the dylib on first use if it's missing (download.sh
+        # verifies SHA-256 and writes binaries/). No-op when present.
+        _ensure_binaries()
         assert os.path.exists(path), f"Dylib not found. Tried: {candidates}"
 
         # Hot-reload: check mtime, reload if changed
@@ -423,8 +479,9 @@ def _start_proxy():
     If both proxies already answer, the launch is skipped at INFO level.
 
     Pipes stderr to a log file (not DEVNULL) so startup errors are
-    diagnosable.  After launch, polls both proxy health endpoints for up
-    to 5 seconds and logs a warning for each one that doesn't come up.
+    diagnosable.  After launch, detects immediate death (stderr tail +
+    API-key hint) and polls both proxy health endpoints for up to 5
+    seconds, logging a warning for each one that doesn't come up.
     """
     import time
 
@@ -473,17 +530,41 @@ def _start_proxy():
     log_dir.mkdir(parents=True, exist_ok=True)
     try:
         with open(log_dir / "proxy-stderr.log", "a") as stderr_log:
-            subprocess.Popen(
+            proc = subprocess.Popen(
                 [binary],
                 env=env,
                 stdout=subprocess.DEVNULL,
                 stderr=stderr_log,
                 cwd=os.getcwd(),
             )
-        _log.info("aphrodite proxy started (%s)", binary)
     except Exception as e:
         _log.warning("failed to start aphrodite proxy: %s", e)
         return
+
+    # Detect immediate death: a proxy binary that dies on launch (bad
+    # config, missing API key, port conflict) used to be silently invisible
+    # - the health check below would only log "did not become healthy" with
+    # no clue why. Surface the stderr tail right away instead. A single
+    # immediate poll() races the child's exec, so give a fast-exiting
+    # binary a brief grace period before declaring it started.
+    rc = proc.poll()
+    if rc is None:
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            rc = proc.wait(timeout=0.25)
+    if rc is not None:
+        _log.warning(
+            "aphrodite proxy exited immediately (rc=%s); last stderr:", rc
+        )
+        tail = _tail_log(log_dir / "proxy-stderr.log")
+        _log.warning("%s", tail)
+        if "API key" in tail:
+            _log.warning(
+                "set APHRODITE_API_KEY env var, run `aphrodite setup`, or "
+                "add api_key to the TOML at ~/.hermes/aphrodite/aphrodite.toml"
+            )
+        return
+
+    _log.info("aphrodite proxy started (%s)", binary)
 
     # ── Health check: poll both proxies for up to 5 seconds ──────
     deadline = time.monotonic() + 5.0
@@ -552,7 +633,22 @@ def register(ctx: Any) -> None:
       register_context_engine(engine)   # engine must subclass ContextEngine
     Each registration is isolated so one failure never aborts the whole plugin.
     """
-    dylib = _load_dylib()
+    try:
+        dylib = _load_dylib()
+    except Exception as e:
+        # Defensive (issue triage): a missing/unloadable dylib (auto-download
+        # failed, wrong architecture, corrupted binary) must disable the
+        # plugin with a clear log - never propagate and abort Hermes' plugin
+        # loading. The download.sh + APHRODITE_NO_AUTO_DOWNLOAD story above
+        # covers the recovery path; without the dylib there is nothing to
+        # register, so we log and return.
+        _log.error(
+            "aphrodite-hermes dylib could not be loaded (%s) - plugin disabled; "
+            "run download.sh (or unset APHRODITE_NO_AUTO_DOWNLOAD) to fetch "
+            "the binaries, then restart Hermes",
+            e,
+        )
+        return
     _log.info("aphrodite-hermes dylib loaded: %s", _DYLIB_PATH)
     _check_version(dylib)
 
@@ -610,10 +706,12 @@ def register(ctx: Any) -> None:
     # `~/.hermes/aphrodite`), the old hardcoded `parent.parent.parent` guess
     # landed on `~/skills` (never exists) - 0 of the 9 advertised skills ever
     # registered outside a monorepo checkout, with only an info log to notice.
-    _skills_dir_candidates = [
-        _PLUGIN_DIR / "skills",
-        _PLUGIN_DIR.parents[1] / "skills",
-        _PLUGIN_DIR.parents[2] / "skills",
+    # Slicing never raises: shallow installs (e.g. /opt/Aphrodite-Hermes) have
+    # fewer than 3 parents, and parents[1:3] preserves deep-install semantics
+    # (repo-root skills sit at parents[1] for a plugin at
+    # <repo>/plugins/aphrodite) - issue 5.
+    _skills_dir_candidates = [_PLUGIN_DIR / "skills"] + [
+        p / "skills" for p in _PLUGIN_DIR.parents[1:3]
     ]
     _skills_dir = next((p for p in _skills_dir_candidates if p.is_dir()), None)
     if _skills_dir is None:
