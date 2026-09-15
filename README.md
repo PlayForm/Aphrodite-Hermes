@@ -1,22 +1,27 @@
 # Aphrodite 💋 Hermes Plugin
 
+> [!NOTE]
+>
 > **CCR compression plugin for Hermes Agent - thin Python loader + Rust dylib.**
-> **Sub-ms tool output compression, 26-type classifier, 13 tools, 9 skills.**
+> Sub-ms tool output compression, 28-type classifier, 13 tools, 6 hooks,
+> context engine, dylib hot-reload, 9 bundled skills.
 
 Aphrodite intercepts tool output before it reaches the LLM and replaces it with
 compact, structured previews. The agent sees 15 tokens of metadata instead of
 500 tokens of raw text - and retrieves the full content only when it actually
 needs it. **All compression logic runs in the Rust dylib.**
 
-[![plugin](https://img.shields.io/badge/plugin-v2.0.10-purple)](plugin.yaml)
-[![hermes](https://img.shields.io/badge/hermes-≥0.16.0-blue)](https://github.com/NousResearch/hermes-agent)
-[![license](https://img.shields.io/badge/license-CC0--1.0-lightgrey)](LICENSE)
+[![plugin](https://img.shields.io/static/v1?label=plugin&message=v2.1.2&color=purple)](plugin.yaml)
+[![hermes](https://img.shields.io/static/v1?label=hermes&message=0.16.0%2B&color=blue)](https://github.com/NousResearch/hermes-agent)
+[![license](https://img.shields.io/static/v1?label=license&message=CC0-1.0&color=lightgrey)](LICENSE)
 
 ---
 
 ## Install ⚡
 
 ### One-command
+
+**`Terminal`**
 
 ```bash
 git clone https://github.com/PlayForm/Aphrodite-Hermes.git
@@ -29,6 +34,8 @@ On first launch, the plugin **automatically downloads** the `aphrodite` binary
 from [releases](https://github.com/PlayForm/Aphrodite/releases). No Rust
 toolchain required.
 
+> [!IMPORTANT]
+>
 > **Native Windows**: run `pwsh ./download.ps1` instead of `download.sh` - no
 > Git Bash/WSL needed. See
 > [Windows install](https://github.com/PlayForm/Aphrodite/blob/Current/docs/install/windows.md)
@@ -43,6 +50,8 @@ requests upstream - so it needs **its own** provider credentials even though
 Hermes already has a provider configured. The plugin **cannot** read Hermes'
 provider config, and there is **no keyless / compression-only mode**: without a
 key the proxy refuses to start and the plugin is unusable.
+
+**`Terminal`**
 
 ```bash
 export APHRODITE_API_KEY="sk-..."                                  # REQUIRED
@@ -59,19 +68,24 @@ configured` means the key is missing.
 
 After installing and launching Hermes once:
 
-```
+**`Filesystem`**
+
+```text
 ~/.hermes/
 ├── plugins/
 │   └── aphrodite → /path/to/Aphrodite-Hermes    ← symlink to this repo
 ├── aphrodite/
 │   ├── aphrodite                                 ← auto-downloaded binary (~12 MB)
-│   └── ccr.db                                    ← SQLite CCR store (on first run)
+│   ├── ccr.db                                    ← SQLite CCR store (on first run)
+│   └── proxy-stderr.log                          ← proxy logs (on failure)
 └── profiles/<name>/
     └── plugins/
         └── aphrodite → ~/.hermes/plugins/aphrodite
 ```
 
 The plugin also adds to your Hermes config:
+
+**`config.yaml`**
 
 ```yaml
 # Added automatically on enable
@@ -82,14 +96,18 @@ plugins:
 # Recommended additions (manual)
 context:
   engine: aphrodite
-  engine_threshold_pct: 55
+  engine_threshold_pct: 100   # 100 = engine effectively off; lower = compress sooner
 model:
   context_length: 1000000
 ```
 
 Two proxy processes launch on `:9797` (cache) and `:9798` (token).
+On registration the plugin probes both health endpoints and **reuses an
+already-running proxy pair** instead of launching a second instance.
 
 ### Verify it's working
+
+**`Terminal`**
 
 ```bash
 # In a Hermes session:
@@ -97,10 +115,12 @@ aphrodite_stats
 
 # Or via CLI:
 curl http://127.0.0.1:9798/health
-# → {"status":"ok","version":"<current aphrodite version - see the badge above>"}
+# → {"status":"healthy","version":"<current aphrodite version - see the badge above>"}
 ```
 
 ### Clean uninstall
+
+**`Terminal`**
 
 ```bash
 hermes plugins disable aphrodite
@@ -112,10 +132,10 @@ pkill -f "aphrodite/binaries/aphrodite"
 
 ## Architecture 🏗️
 
-```
+```text
 Python (thin loader)              Rust dylib (all logic)
-  __init__.py       421L            libaphrodite_hermes.dylib
-    ↓ ctypes FFI                      ← universal dispatch (5 hooks)
+  __init__.py       948L            libaphrodite_hermes.dylib
+    ↓ ctypes FFI                      ← universal dispatch (6 hooks)
   libaphrodite_hermes.dylib           ← 13 tool handlers, delegates into
                                       libaphrodite (core engine): hooks,
                                       resolve, stage2, struct_extract, state,
@@ -123,7 +143,7 @@ Python (thin loader)              Rust dylib (all logic)
                                       config_loader
 ```
 
-All 5 hooks + 13 tools delegate to Rust. Python serves as fallback.
+All 6 hooks + 13 tools delegate to Rust. Python serves as fallback.
 Hot-reload: rebuild dylib → mtime change detected → next call picks up new code.
 
 ---
@@ -132,7 +152,7 @@ Hot-reload: rebuild dylib → mtime change detected → next call picks up new c
 
 | Tool                   | Description                                          |
 | :--------------------- | :--------------------------------------------------- |
-| `aphrodite_retrieve`   | Resolve `<<<CCR:hash\|type>>>` markers                |
+| `aphrodite_retrieve`   | Resolve `<<<CCR:hash\|type\|size>>>` markers          |
 | `aphrodite_compress`   | Compress content via CCR with type hint               |
 | `aphrodite_stats`      | Proxy health, engine status, inline store size        |
 | `aphrodite_rebuild`    | Report binary/proxy version + a rebuild hint (does not rebuild or restart itself) |
@@ -143,25 +163,30 @@ Hot-reload: rebuild dylib → mtime change detected → next call picks up new c
 | `aphrodite_test`       | Smoke test suite: quick (1 sample) or full (3 samples) |
 | `aphrodite_catalog`    | Full CCR catalog with hashes, types, sizes, previews  |
 | `aphrodite_reclassify` | Retroactive metadata enrichment                       |
-| `aphrodite_prefetch`   | Background file read + compress (markers return instantly) |
+| `aphrodite_prefetch`   | Read + compress files on demand; markers returned inline |
 | `aphrodite_prefetch_status` | Live prefetch schedule: loading, ready, errors    |
 
 ---
 
 ## Configuration ⚙️
 
-All tuning in `aphrodite.toml` (searched: CWD → `~/.hermes/aphrodite/` → repo root):
+All tuning in `aphrodite.toml` - searched in `./aphrodite.toml`, then
+`~/.hermes/aphrodite/aphrodite.toml` (when `APHRODITE_CONFIG_PATH` is unset):
+
+**`aphrodite.toml`**
 
 ```toml
 [compression]
-engine_threshold_pct = 45    # compress at 45% context fill
+engine_threshold_pct = 100   # 100% = engine effectively off (standing feedback); lower = compress sooner
 engine_protect_first = 2     # messages to keep at start
 engine_protect_last = 5      # messages to keep at end
 engine_min_msgs = 8          # minimum before activating
-tool_threshold_token = 512   # token proxy threshold (bytes)
-tool_threshold_cache = 4096  # cache proxy threshold (bytes)
-code_multiplier = 3.0        # keep code in context longer
-context_engine = true        # default-on, no env var needed
+tool_threshold_token = 256   # token proxy threshold (bytes)
+tool_threshold_cache = 2048  # cache proxy threshold (bytes)
+terminal_threshold  = 512    # terminal output threshold (bytes)
+inline_threshold    = 1024   # inline-vs-durable CCR storage cutoff (bytes)
+code_multiplier     = 3.0    # keep code in context longer
+context_engine      = true   # default-on, no env var needed
 
 [previews]
 model_family = "code_first"  # compact | code_first | balance
@@ -173,17 +198,14 @@ ccr_marker_hint = true
 ```
 
 Env var overrides: `APHRODITE_ENGINE_THRESHOLD_PCT`, `APHRODITE_CONTEXT_ENGINE`, etc.
+See [docs/config/env-vars.md](https://github.com/PlayForm/Aphrodite/blob/Current/docs/config/env-vars.md).
 
 `APHRODITE_HOME` relocates the plugin's Python-side data (hot-reload dylib
 copies, `proxy-stderr.log`) from the default `~/.hermes/aphrodite`; the Rust
 binary does **not** read it - `aphrodite.toml` / `ccr.db` lookup stays put.
 
-On registration the plugin probes both health endpoints (`:9797`, `:9798`)
-and **reuses an already-running proxy pair** instead of launching a second
-instance, so extra Hermes processes no longer pile `failed to bind listener`
-noise into `proxy-stderr.log`. Set `APHRODITE_NO_AUTO_LAUNCH=1` to skip the
-auto-launch entirely, e.g. when a `cargo watch` dev loop runs the proxy
-itself.
+Set `APHRODITE_NO_AUTO_LAUNCH=1` to skip the proxy auto-launch entirely, e.g.
+when a `cargo watch` dev loop runs the proxy itself.
 
 ### Directives
 
@@ -199,6 +221,8 @@ loads as a fallback - its activation is logged. Manage them at runtime with
 
 ## Dev Install (Rust source)
 
+**`Terminal`**
+
 ```bash
 git clone https://github.com/PlayForm/Aphrodite.git
 cd Aphrodite
@@ -210,14 +234,18 @@ cargo build -p aphrodite
 
 ## Files
 
-```
+**`Layout`**
+
+```text
 Aphrodite-Hermes/
-├── __init__.py          ← 421-line Python loader (ctypes FFI)
-├── plugin.yaml          ← 13 tools, 5 hooks, context engine
+├── __init__.py          ← 948-line Python loader (ctypes FFI)
+├── plugin.yaml          ← 13 tools, 6 hooks, context engine
 ├── download.sh          ← Binary auto-downloader (macOS/Linux/Git Bash/WSL)
 ├── download.ps1         ← Binary auto-downloader (native Windows PowerShell)
+├── BINARY_VERSION       ← Pinned binary release tag
 ├── binaries/            ← Platform-native dylib + proxy binary
+├── directives/          ← Plugin-side directive set
+├── tests/               ← Plugin test suite
 ├── README.md            ← This file
 └── .gitignore
 ```
-
