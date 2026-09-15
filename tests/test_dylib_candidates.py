@@ -28,19 +28,22 @@ import importlib.util
 import os
 import unittest
 from pathlib import Path
+from typing import Any
 
 # Load the plugin shim as a module without triggering Hermes registration.
 _PLUGIN = Path(__file__).resolve().parent.parent / "__init__.py"
 _spec = importlib.util.spec_from_file_location(
     "_aphrodite_dylib_candidates_under_test", _PLUGIN
 )
+assert _spec is not None
+assert _spec.loader is not None
 _plugin = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_plugin)
 
 # The issue-5 refactor adds the pure helper. Access it lazily so this file is
 # runnable before the partner's edit lands (tests skip with a reason instead
 # of AttributeError-ing at import time).
-_dylib_candidates = getattr(_plugin, "_dylib_candidates", None)
+_dylib_candidates: Any = getattr(_plugin, "_dylib_candidates", None)
 
 
 def _require_helper(test_case: unittest.TestCase) -> None:
@@ -102,12 +105,12 @@ class DylibCandidatesTest(unittest.TestCase):
         _require_helper(self)
         saved = (_plugin._PLUGIN_DIR, _plugin._DYLIB_PATH)
         try:
-            _plugin._PLUGIN_DIR = Path("/opt/Aphrodite-Hermes")
-            _plugin._DYLIB_PATH = "/nonexistent/libaphrodite_hermes.dylib"
+            _plugin._PLUGIN_DIR = Path("/opt/Aphrodite-Hermes")  # pyright: ignore[reportAttributeAccessIssue]
+            _plugin._DYLIB_PATH = "/nonexistent/libaphrodite_hermes.dylib"  # pyright: ignore[reportAttributeAccessIssue]
             with self.assertRaises(AssertionError):
                 _plugin._load_dylib()
         finally:
-            _plugin._PLUGIN_DIR, _plugin._DYLIB_PATH = saved
+            _plugin._PLUGIN_DIR, _plugin._DYLIB_PATH = saved  # pyright: ignore[reportAttributeAccessIssue]
 
 
 if __name__ == "__main__":

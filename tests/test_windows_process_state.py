@@ -42,7 +42,7 @@ import tempfile
 from contextlib import suppress
 from pathlib import Path
 
-import pytest
+import pytest  # pyright: ignore[reportMissingImports]
 
 _PLUGIN = Path(__file__).resolve().parent.parent / "__init__.py"
 _STATE_MODULE_NAME = "aphrodite_hermes._process_state"
@@ -85,7 +85,7 @@ class _FakeFn:
 class _FakeCDLL:
     """Stand-in for ctypes.CDLL: records every load, exposes any symbol."""
 
-    instances: list["_FakeCDLL"] = []
+    instances: list[_FakeCDLL] = []
 
     def __init__(self, path: str) -> None:
         self.path = path
@@ -128,6 +128,8 @@ def _exec_shim(name: str):
     """exec_module() the plugin __init__.py under `name`, the way Hermes'
     _load_directory_module does for each Hermes home."""
     spec = importlib.util.spec_from_file_location(name, _PLUGIN)
+    assert spec is not None
+    assert spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
     sys.modules[name] = mod
     spec.loader.exec_module(mod)

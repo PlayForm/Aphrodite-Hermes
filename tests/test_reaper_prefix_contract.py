@@ -32,6 +32,8 @@ _PLUGIN = Path(__file__).resolve().parent.parent / "__init__.py"
 _spec = importlib.util.spec_from_file_location(
     "_aphrodite_reaper_prefix_under_test", _PLUGIN
 )
+assert _spec is not None
+assert _spec.loader is not None
 _plugin = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_plugin)
 
@@ -59,7 +61,7 @@ class ReaperPrefixContractTest(unittest.TestCase):
 
     def tearDown(self):
         _plugin._hotreload_dir = self._saved_dir  # type: ignore[assignment]
-        _plugin._DYLIB_PATH = self._saved_dylib
+        _plugin._DYLIB_PATH = self._saved_dylib  # pyright: ignore[reportAttributeAccessIssue]
         for f in self.tmp.glob("*"):
             with suppress(OSError):
                 f.unlink()
@@ -76,7 +78,7 @@ class ReaperPrefixContractTest(unittest.TestCase):
             with self.subTest(dylib_name=name):
                 # Simulate the plugin running on that platform: the reaper
                 # derives its prefix from _DYLIB_PATH at call time.
-                _plugin._DYLIB_PATH = f"/some/install/binaries/{name}"
+                _plugin._DYLIB_PATH = f"/some/install/binaries/{name}"  # pyright: ignore[reportAttributeAccessIssue]
                 prefix = os.path.basename(_plugin._DYLIB_PATH)
                 self.assertEqual(prefix, name)
                 tombstone = self._tombstone(prefix, _DEAD_PID, gen=1)
@@ -90,7 +92,7 @@ class ReaperPrefixContractTest(unittest.TestCase):
 
     def test_unrelated_prefix_is_never_reaped(self):
         """Defensive: the reaper must not delete files it does not own."""
-        _plugin._DYLIB_PATH = "/some/install/binaries/libaphrodite_hermes.dylib"
+        _plugin._DYLIB_PATH = "/some/install/binaries/libaphrodite_hermes.dylib"  # pyright: ignore[reportAttributeAccessIssue]
         prefix = os.path.basename(_plugin._DYLIB_PATH)
 
         foreign = self._tombstone("some_other_file.so", 123, gen=1)

@@ -22,6 +22,8 @@ from pathlib import Path
 # Load the plugin shim as a module without triggering Hermes registration.
 _PLUGIN = Path(__file__).resolve().parent.parent / "__init__.py"
 _spec = importlib.util.spec_from_file_location("_aphrodite_plugin_under_test", _PLUGIN)
+assert _spec is not None
+assert _spec.loader is not None
 _plugin = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_plugin)
 

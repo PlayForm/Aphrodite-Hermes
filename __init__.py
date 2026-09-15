@@ -142,10 +142,10 @@ def _pid_alive(pid: int) -> bool:
         try:
             import ctypes.wintypes as wt
 
-            SYNCHRONIZE = 0x00100000
-            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-            STILL_ACTIVE = 259
-            ERROR_ACCESS_DENIED = 5
+            SYNCHRONIZE = 0x00100000  # noqa: N806 - Win32 API constant
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000  # noqa: N806 - Win32 API constant
+            STILL_ACTIVE = 259  # noqa: N806 - Win32 API constant
+            ERROR_ACCESS_DENIED = 5  # noqa: N806 - Win32 API constant
             k32 = ctypes.windll.kernel32
             k32.OpenProcess.argtypes = [wt.DWORD, wt.BOOL, wt.DWORD]
             k32.OpenProcess.restype = wt.HANDLE
@@ -371,9 +371,9 @@ def _load_dylib() -> ctypes.CDLL:
                 f"than this plugin expects"
             ) from e
 
-        _state.dylib = dylib
-        _state.dylib_mtime = current_mtime
-        _state.dylib_copy_path = load_path
+        _state.dylib = dylib  # pyright: ignore[reportAttributeAccessIssue]
+        _state.dylib_mtime = current_mtime  # pyright: ignore[reportAttributeAccessIssue]
+        _state.dylib_copy_path = load_path  # pyright: ignore[reportAttributeAccessIssue]
         return dylib
 
 
@@ -751,7 +751,7 @@ def _register_atexit_cleanup() -> None:
     flag lives in the process-global holder)."""
     if _state.atexit_registered:
         return
-    _state.atexit_registered = True
+    _state.atexit_registered = True  # pyright: ignore[reportAttributeAccessIssue]
     import atexit
 
     def _cleanup() -> None:
