@@ -90,15 +90,15 @@ The plugin also adds to your Hermes config:
 ```yaml
 # Added automatically on enable
 plugins:
-  enabled:
-    - aphrodite
+    enabled:
+        - aphrodite
 
 # Recommended additions (manual)
 context:
-  engine: aphrodite
-  engine_threshold_pct: 100   # 100 = engine effectively off; lower = compress sooner
+    engine: aphrodite
+    engine_threshold_pct: 100 # 100 = engine effectively off; lower = compress sooner
 model:
-  context_length: 1000000
+    context_length: 1000000
 ```
 
 Two proxy processes launch on `:9797` (cache) and `:9798` (token).
@@ -132,39 +132,97 @@ pkill -f "aphrodite/binaries/aphrodite"
 
 ## Architecture 🏗️
 
+The plugin is a **thin Python registration shim** over a Rust dylib - every
+hook, tool, and byte of compression logic lives in Rust. Python exists only to
+load the dylib via ctypes and register its surface with Hermes.
+
+### Layers
+
+**`Call chain`**
+
 ```text
-Python (thin loader)              Rust dylib (all logic)
-  __init__.py       948L            libaphrodite_hermes.dylib
-    ↓ ctypes FFI                      ← universal dispatch (6 hooks)
-  libaphrodite_hermes.dylib           ← 13 tool handlers, delegates into
-                                      libaphrodite (core engine): hooks,
-                                      resolve, stage2, struct_extract, state,
-                                      catalog, session, marker, prefetch,
-                                      config_loader
+ Hermes Agent (hooks + tool dispatch)
+    │
+    ▼
+ plugins/aphrodite/__init__.py        ← 948-line Python loader
+    │  ctypes FFI, registers hooks/tools/skills/engine - no logic
+    ▼
+ libaphrodite_hermes.dylib            ← Hermes bridge (JSON contract)
+    │  6 hooks · 13 tools · schemas · skills
+    ▼
+ libaphrodite (core engine)           ← ALL compression logic
+    │  hooks · resolve · retrieve · marker · preview
+    │  stage2 · struct_extract · state · session
+    │  catalog · prefetch · poll_worker · directives
+    │  config_loader · builtin_directives
+    ▼
+ CCR store (SQLite :9798 / in-memory :9797 / inline)
 ```
 
-All 6 hooks + 13 tools delegate to Rust. Python serves as fallback.
-Hot-reload: rebuild dylib → mtime change detected → next call picks up new code.
+### Data flow
+
+**`Plugin mode`**
+
+```text
+ Tool executes → output intercepted by hook
+      ↓
+ classify → preview → store (SQLite / in-memory / inline)
+      ↓
+ Agent ← [type:enriched preview] (not raw output)
+      ↓
+ aphrodite_retrieve(hash) → full content (only when needed)
+```
+
+### Dual listeners
+
+The plugin auto-launches two proxy processes (and reuses an already-running
+pair instead of starting a second instance):
+
+| Listener | Port  | CCR backend                      | Threshold | Best for                  |
+| :------- | :---: | :------------------------------- | :-------: | :------------------------ |
+| Cache    | :9797 | In-memory (DashMap, 10K entries) |   >8 KB   | Speed, transient sessions |
+| Token    | :9798 | SQLite (persistent)              |   >1 KB   | Durability, tool relay    |
+
+### Hooks
+
+Six Hermes hooks drive the plugin (`provides_hooks` in `plugin.yaml`), all
+dispatched to the Rust dylib:
+
+| Hook                        | Role                                                    |
+| :-------------------------- | :------------------------------------------------------ |
+| `on_session_start`          | Engine bootstrap, directive seeding, proxy health check |
+| `transform_tool_result`     | Compress every tool result before it reaches the LLM    |
+| `transform_terminal_output` | Compress terminal output with exit-code context         |
+| `pre_llm_call`              | Inject directives, compress overflowing middle turns    |
+| `post_llm_call`             | Capture savings, update adaptive thresholds             |
+| `pre_tool_call`             | Prefetch-aware dispatch, auto-background slow calls     |
+
+> [!NOTE]
+>
+> **Hot-reload**: rebuild the dylib → mtime change detected → the loader copies
+> it to a fresh unique path (`~/.hermes/aphrodite/hotreload/<base>.<pid>.<gen>`)
+> and re-`ctypes.CDLL()`s it - the next call picks up the new code
+> automatically. Stale copies are reaped on startup and shutdown.
 
 ---
 
 ## Tools 🛠️
 
-| Tool                   | Description                                          |
-| :--------------------- | :--------------------------------------------------- |
-| `aphrodite_retrieve`   | Resolve `<<<CCR:hash\|type\|size>>>` markers          |
-| `aphrodite_compress`   | Compress content via CCR with type hint               |
-| `aphrodite_stats`      | Proxy health, engine status, inline store size        |
-| `aphrodite_rebuild`    | Report binary/proxy version + a rebuild hint (does not rebuild or restart itself) |
-| `aphrodite_files`      | Tracked file references grouped by tool               |
-| `aphrodite_diff`       | Conversation turn history with summaries              |
-| `aphrodite_search`     | Search CCR store by keyword or type                   |
-| `aphrodite_directive`  | List/swap/add/remove/reset active behavioral directives |
-| `aphrodite_test`       | Smoke test suite: quick (1 sample) or full (3 samples) |
-| `aphrodite_catalog`    | Full CCR catalog with hashes, types, sizes, previews  |
-| `aphrodite_reclassify` | Retroactive metadata enrichment                       |
-| `aphrodite_prefetch`   | Read + compress files on demand; markers returned inline |
-| `aphrodite_prefetch_status` | Live prefetch schedule: loading, ready, errors    |
+| Tool                        | Description                                                                       |
+| :-------------------------- | :-------------------------------------------------------------------------------- |
+| `aphrodite_retrieve`        | Resolve `<<<CCR:hash\|type\|size>>>` markers                                      |
+| `aphrodite_compress`        | Compress content via CCR with type hint                                           |
+| `aphrodite_stats`           | Proxy health, engine status, inline store size                                    |
+| `aphrodite_rebuild`         | Report binary/proxy version + a rebuild hint (does not rebuild or restart itself) |
+| `aphrodite_files`           | Tracked file references grouped by tool                                           |
+| `aphrodite_diff`            | Conversation turn history with summaries                                          |
+| `aphrodite_search`          | Search CCR store by keyword or type                                               |
+| `aphrodite_directive`       | List/swap/add/remove/reset active behavioral directives                           |
+| `aphrodite_test`            | Smoke test suite: quick (1 sample) or full (3 samples)                            |
+| `aphrodite_catalog`         | Full CCR catalog with hashes, types, sizes, previews                              |
+| `aphrodite_reclassify`      | Retroactive metadata enrichment                                                   |
+| `aphrodite_prefetch`        | Read + compress files on demand; markers returned inline                          |
+| `aphrodite_prefetch_status` | Live prefetch schedule: loading, ready, errors                                    |
 
 ---
 
