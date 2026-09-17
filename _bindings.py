@@ -870,132 +870,107 @@ _libs["__APHRODITE_DYLIB__"] = None  # bound at runtime via bind_to()
 
 
 # ── Runtime binder (post-processed by codegen/finalize_bindings.py) ──────────
-# The ctypesgen declaration loops were moved inside `bind_to()`: this module
-# NEVER loads a library at import time (no hardcoded dylib path), so importing
-# it is always safe - even on a machine with no dylib present. The plugin
-# (plugins/aphrodite/__init__.py) loads the dylib through its hot-reload
-# machinery (a fresh unique-path copy per generation) and calls
-# bind_to(dylib) to replay the generated restype/argtypes declarations onto
-# the live handle.
-
-class _LiveLookup:
-    """ctypesgen `has`/`get` adapter over an already-loaded ctypes.CDLL."""
-
-    def __init__(self, cdll):
-        self._cdll = cdll
-
-    def has(self, name, calling_convention="cdecl"):
-        try:
-            getattr(self._cdll, name)
-            return True
-        except AttributeError:
-            return False
-
-    def get(self, name, calling_convention="cdecl"):
-        return getattr(self._cdll, name)
-
+# Importing this module NEVER loads a library (no hardcoded dylib path): the
+# plugin owns the live CDLL handle (hot-reload unique-path copy) and calls
+# bind_to(dylib) to replay the declarations below onto it. The loops call
+# hasattr/getattr directly - no lookup adapter class is needed.
 
 def bind_to(_dylib):
-    """Apply the generated FFI declarations to an already-loaded CDLL handle.
+    """Replay the generated declarations onto an already-loaded CDLL handle.
 
-    `_dylib` is the ctypes.CDLL produced by the plugin's hot-reload machinery
-    (env override -> canonical runtime home -> legacy copies -> fresh
-    unique-path copy per generation), so the library path is deliberately
-    never baked in here.
-
-    argtypes come verbatim from the generated declarations. restype is
-    c_void_p for every pointer-declared fn (the plugin's universal
-    convention - _call_json clamps to c_void_p anyway, and reading a pointer
-    return at full width is the whole point of this pipeline) and None for
-    void fns. errcheck is NEVER applied: the plugin reads raw pointers and
-    frees them through the same handle that produced them.
+    `_dylib` is the plugin's live handle (env override -> canonical home ->
+    legacy copies -> fresh unique-path copy per generation), so the library
+    path is deliberately never baked in. Pointer restypes are c_void_p
+    (full-width reads - _call_json clamps to c_void_p anyway), void fns get
+    None. errcheck is never applied: the plugin reads raw pointers and frees
+    them through the same handle that produced them.
     """
-    _libs['__APHRODITE_DYLIB__'] = _LiveLookup(_dylib)
+    _libs['__APHRODITE_DYLIB__'] = _dylib
     for _lib in _libs.values():
-        if not _lib.has("aphrodite_hermes_dispatch_tool", "cdecl"):
+        if not hasattr(_lib, "aphrodite_hermes_dispatch_tool"):
             continue
-        aphrodite_hermes_dispatch_tool = _lib.get("aphrodite_hermes_dispatch_tool", "cdecl")
+        aphrodite_hermes_dispatch_tool = getattr(_lib, "aphrodite_hermes_dispatch_tool")
         aphrodite_hermes_dispatch_tool.argtypes = [String, String]
         aphrodite_hermes_dispatch_tool.restype = c_void_p
         break
 
     # aphrodite_hermes.h: 21
     for _lib in _libs.values():
-        if not _lib.has("aphrodite_hermes_list_tools", "cdecl"):
+        if not hasattr(_lib, "aphrodite_hermes_list_tools"):
             continue
-        aphrodite_hermes_list_tools = _lib.get("aphrodite_hermes_list_tools", "cdecl")
+        aphrodite_hermes_list_tools = getattr(_lib, "aphrodite_hermes_list_tools")
         aphrodite_hermes_list_tools.argtypes = []
         aphrodite_hermes_list_tools.restype = c_void_p
         break
 
     # aphrodite_hermes.h: 26
     for _lib in _libs.values():
-        if not _lib.has("aphrodite_hermes_get_schema", "cdecl"):
+        if not hasattr(_lib, "aphrodite_hermes_get_schema"):
             continue
-        aphrodite_hermes_get_schema = _lib.get("aphrodite_hermes_get_schema", "cdecl")
+        aphrodite_hermes_get_schema = getattr(_lib, "aphrodite_hermes_get_schema")
         aphrodite_hermes_get_schema.argtypes = [String]
         aphrodite_hermes_get_schema.restype = c_void_p
         break
 
     # aphrodite_hermes.h: 31
     for _lib in _libs.values():
-        if not _lib.has("aphrodite_hermes_free_string", "cdecl"):
+        if not hasattr(_lib, "aphrodite_hermes_free_string"):
             continue
-        aphrodite_hermes_free_string = _lib.get("aphrodite_hermes_free_string", "cdecl")
+        aphrodite_hermes_free_string = getattr(_lib, "aphrodite_hermes_free_string")
         aphrodite_hermes_free_string.argtypes = [String]
         aphrodite_hermes_free_string.restype = None
         break
 
     # aphrodite_hermes.h: 36
     for _lib in _libs.values():
-        if not _lib.has("aphrodite_hermes_version", "cdecl"):
+        if not hasattr(_lib, "aphrodite_hermes_version"):
             continue
-        aphrodite_hermes_version = _lib.get("aphrodite_hermes_version", "cdecl")
+        aphrodite_hermes_version = getattr(_lib, "aphrodite_hermes_version")
         aphrodite_hermes_version.argtypes = []
         aphrodite_hermes_version.restype = c_void_p
         break
 
     # aphrodite_hermes.h: 51
     for _lib in _libs.values():
-        if not _lib.has("aphrodite_hermes_call_hook", "cdecl"):
+        if not hasattr(_lib, "aphrodite_hermes_call_hook"):
             continue
-        aphrodite_hermes_call_hook = _lib.get("aphrodite_hermes_call_hook", "cdecl")
+        aphrodite_hermes_call_hook = getattr(_lib, "aphrodite_hermes_call_hook")
         aphrodite_hermes_call_hook.argtypes = [String, String]
         aphrodite_hermes_call_hook.restype = c_void_p
         break
 
     # aphrodite_hermes.h: 56
     for _lib in _libs.values():
-        if not _lib.has("aphrodite_hermes_get_schemas", "cdecl"):
+        if not hasattr(_lib, "aphrodite_hermes_get_schemas"):
             continue
-        aphrodite_hermes_get_schemas = _lib.get("aphrodite_hermes_get_schemas", "cdecl")
+        aphrodite_hermes_get_schemas = getattr(_lib, "aphrodite_hermes_get_schemas")
         aphrodite_hermes_get_schemas.argtypes = []
         aphrodite_hermes_get_schemas.restype = c_void_p
         break
 
     # aphrodite_hermes.h: 61
     for _lib in _libs.values():
-        if not _lib.has("aphrodite_hermes_get_hooks", "cdecl"):
+        if not hasattr(_lib, "aphrodite_hermes_get_hooks"):
             continue
-        aphrodite_hermes_get_hooks = _lib.get("aphrodite_hermes_get_hooks", "cdecl")
+        aphrodite_hermes_get_hooks = getattr(_lib, "aphrodite_hermes_get_hooks")
         aphrodite_hermes_get_hooks.argtypes = []
         aphrodite_hermes_get_hooks.restype = c_void_p
         break
 
     # aphrodite_hermes.h: 66
     for _lib in _libs.values():
-        if not _lib.has("aphrodite_hermes_proxy_health", "cdecl"):
+        if not hasattr(_lib, "aphrodite_hermes_proxy_health"):
             continue
-        aphrodite_hermes_proxy_health = _lib.get("aphrodite_hermes_proxy_health", "cdecl")
+        aphrodite_hermes_proxy_health = getattr(_lib, "aphrodite_hermes_proxy_health")
         aphrodite_hermes_proxy_health.argtypes = []
         aphrodite_hermes_proxy_health.restype = c_void_p
         break
 
     # aphrodite_hermes.h: 85
     for _lib in _libs.values():
-        if not _lib.has("aphrodite_hermes_materialize_directives", "cdecl"):
+        if not hasattr(_lib, "aphrodite_hermes_materialize_directives"):
             continue
-        aphrodite_hermes_materialize_directives = _lib.get("aphrodite_hermes_materialize_directives", "cdecl")
+        aphrodite_hermes_materialize_directives = getattr(_lib, "aphrodite_hermes_materialize_directives")
         aphrodite_hermes_materialize_directives.argtypes = [String]
         aphrodite_hermes_materialize_directives.restype = c_void_p
         break
