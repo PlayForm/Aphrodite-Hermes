@@ -4,7 +4,7 @@
 >
 > **CCR compression plugin for Hermes Agent - thin Python loader + Rust dylib.**
 > Sub-ms tool output compression, 28-type classifier, 13 tools, 6 hooks,
-> context engine, dylib hot-reload, 9 bundled skills.
+> context engine, dylib hot-reload. Skills ship dev-side, not with the plugin.
 
 Aphrodite intercepts tool output before it reaches the LLM and replaces it with
 compact, structured previews. The agent sees 15 tokens of metadata instead of
@@ -148,10 +148,10 @@ load the dylib via ctypes and register its surface with Hermes.
     │
     ▼
  plugins/aphrodite/__init__.py        ← 948-line Python loader
-    │  ctypes FFI, registers hooks/tools/skills/engine - no logic
+    │  ctypes FFI, registers hooks/tools/engine - no logic
     ▼
  libaphrodite_hermes.dylib            ← Hermes bridge (JSON contract)
-    │  6 hooks · 13 tools · schemas · skills
+    │  6 hooks · 13 tools · schemas
     ▼
  libaphrodite (core engine)           ← ALL compression logic
     │  hooks · resolve · retrieve · marker · preview
