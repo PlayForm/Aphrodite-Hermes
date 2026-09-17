@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "name": "aphrodite-hermes-runtime-layout",
+  "description": "Canonical ~/.hermes layout for the Aphrodite Hermes plugin. The plugin self-heals toward this schema at startup (layout_check.py); this file is the single machine-readable reference for what is expected where. Path keys use ~/.hermes/... notation where ~ is the user home.",
+  "home_marker": "~",
+  "overrides": {
+    "APHRODITE_CONFIG_PATH": {
+      "relocates": "~/.hermes/aphrodite/aphrodite.toml",
+      "purpose": "User-specified location of the aphrodite runtime config. When set, config presence is checked at this path and misplaced config is moved here instead of the runtime home."
+    },
+    "APHRODITE_BINARY_PATH": {
+      "relocates": "~/.hermes/aphrodite/binaries/aphrodite",
+      "purpose": "User-specified location of the aphrodite runtime binary. When set, binary checks target this path and misplaced binaries are moved here."
+    },
+    "APHRODITE_HERMES_DYLIB_PATH": {
+      "relocates": "~/.hermes/aphrodite/binaries/libaphrodite_hermes.{dylib,so,dll}",
+      "purpose": "User-specified location of the libaphrodite_hermes shared library. When set, library checks target this path."
+    }
+  },
+  "paths": {
+    "~/.hermes/aphrodite": {
+      "kind": "dir",
+      "required": true,
+      "contents_forbidden": [
+        "__init__.py",
+        "plugin.yaml",
+        "README.md",
+        "download.sh",
+        "download.ps1",
+        "BINARY_VERSION",
+        "layout_check.py",
+        "layout_schema.json"
+      ],
+      "canonical_target": "~/.hermes/aphrodite",
+      "overrides": [],
+      "note": "Runtime home: holds ONLY aphrodite.toml (config), binaries/, directives/, ccr.db, logs. NEVER plugin source files. Stale plugin-source copies found here are quarantined to ~/.hermes/aphrodite/.stale-backup/ when their content verifies as an old or current plugin version; ambiguous files are warn-and-skip."
+    },
+    "~/.hermes/aphrodite/aphrodite.toml": {
+      "kind": "file",
+      "required": false,
+      "contents_forbidden": [],
+      "canonical_target": "~/.hermes/aphrodite/aphrodite.toml",
+      "overrides": ["APHRODITE_CONFIG_PATH"],
+      "note": "Runtime config. Optional (downloader or user creates it), but must never live in the plugin dir."
+    },
+    "~/.hermes/aphrodite/binaries": {
+      "kind": "dir",
+      "required": false,
+      "contents_forbidden": [],
+      "canonical_target": "~/.hermes/aphrodite/binaries",
+      "overrides": [],
+      "note": "Runtime binaries directory. Optional; the loader/downloader populates it."
+    },
+    "~/.hermes/aphrodite/binaries/aphrodite": {
+      "kind": "file",
+      "required": false,
+      "contents_forbidden": [],
+      "canonical_target": "~/.hermes/aphrodite/binaries/aphrodite",
+      "overrides": ["APHRODITE_BINARY_PATH"],
+      "note": "Runtime binary. Must be a real file in the runtime home, never a symlink resolving into the plugin dir."
+    },
+    "~/.hermes/aphrodite/binaries/libaphrodite_hermes.dylib": {
+      "kind": "file",
+      "required": false,
+      "platforms": ["darwin"],
+      "contents_forbidden": [],
+      "canonical_target": "~/.hermes/aphrodite/binaries/libaphrodite_hermes.dylib",
+      "overrides": ["APHRODITE_HERMES_DYLIB_PATH"]
+    },
+    "~/.hermes/aphrodite/binaries/libaphrodite_hermes.so": {
+      "kind": "file",
+      "required": false,
+      "platforms": ["linux"],
+      "contents_forbidden": [],
+      "canonical_target": "~/.hermes/aphrodite/binaries/libaphrodite_hermes.so",
+      "overrides": ["APHRODITE_HERMES_DYLIB_PATH"]
+    },
+    "~/.hermes/aphrodite/binaries/libaphrodite_hermes.dll": {
+      "kind": "file",
+      "required": false,
+      "platforms": ["win32"],
+      "contents_forbidden": [],
+      "canonical_target": "~/.hermes/aphrodite/binaries/libaphrodite_hermes.dll",
+      "overrides": ["APHRODITE_HERMES_DYLIB_PATH"]
+    },
+    "~/.hermes/aphrodite/ccr.db": {
+      "kind": "file",
+      "required": false,
+      "contents_forbidden": [],
+      "canonical_target": "~/.hermes/aphrodite/ccr.db",
+      "overrides": [],
+      "note": "CCR database. Lives in the runtime home, never in the plugin dir."
+    },
+    "~/.hermes/aphrodite/logs": {
+      "kind": "dir",
+      "required": false,
+      "contents_forbidden": [],
+      "canonical_target": "~/.hermes/aphrodite/logs",
+      "overrides": []
+    },
+    "~/.hermes/plugins/aphrodite": {
+      "kind": "symlink",
+      "required": true,
+      "contents_forbidden": ["binaries", "aphrodite.toml", "ccr.db"],
+      "canonical_target": "<plugin real path>: repo plugins/aphrodite or standalone install",
+      "overrides": [],
+      "note": "Pure loader/downloader. Must be a symlink to the plugin; never a real directory holding binaries, config, or ccr.db."
+    },
+    "~/.hermes/profiles/aphrodite-*": {
+      "kind": "symlink",
+      "required": true,
+      "contents_forbidden": [],
+      "canonical_target": "<repo root>/profiles/aphrodite-<name>",
+      "overrides": [],
+      "expand": "profiles",
+      "note": "One symlink per profile name listed under 'profiles'."
+    }
+  },
+  "plugin_dir_forbidden": ["binaries", "aphrodite.toml", "ccr.db"],
+  "runtime_home_forbidden": [
+    "__init__.py",
+    "plugin.yaml",
+    "README.md",
+    "download.sh",
+    "download.ps1",
+    "BINARY_VERSION",
+    "layout_check.py",
+    "layout_schema.json"
+  ],
+  "profiles": [
+    "barebone",
+    "proxy-cache",
+    "proxy-token",
+    "compress-off",
+    "compress-light",
+    "compress-medium",
+    "compress-aggressive"
+  ],
+  "heal_rules": {
+    "move_forbidden_to_runtime_home": "copy + verify byte-identical + remove source; never overwrite an existing destination; identical duplicate at destination removes only the stale source; differing destination is warn-and-skip",
+    "create_missing_symlinks": "plugin symlink and profile symlinks are recreated pointing at the plugin's real path (Path.resolve()); never clobber non-empty real directories",
+    "dangling_or_ambiguous": "warn and skip, report-only",
+    "never_touch_repo_checkout": "if the plugin resolves into a git checkout, misplaced files are reported but not moved (developers manage the checkout)",
+    "quarantine_stale_plugin_source": "stray plugin-source files in the runtime home are moved to ~/.hermes/aphrodite/.stale-backup/ when their content verifies as an old or current plugin version (never hard-deleted); warn-and-skip when the file cannot be compared to the tracked plugin file",
+    "newer_binary_in_plugin": "a binary in the plugin dir that is newer than its canonical runtime-home counterpart is warn-and-skip (never moved or deleted)"
+  }
+}

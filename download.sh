@@ -6,14 +6,14 @@
 
 set -euo pipefail
 
-# 03-F18: BINARY_DIR used to default to a bare "binaries" - relative to
-# $PWD (wherever this script happened to be invoked FROM), not to the
-# script's own directory. Running `bash download.sh` from anywhere other
-# than `plugins/aphrodite/` silently wrote binaries to the wrong place,
-# not the `binaries/` directory the Hermes plugin's `__init__.py` actually
-# looks in.
+# BINARY_DIR defaults to the canonical runtime home
+# (~/.hermes/aphrodite/binaries) - the same directory the Hermes plugin's
+# __init__.py resolves. The env override keeps working exactly as before
+# (scripts/CI may set it); a bare "binaries" relative default used to
+# depend on $PWD (wherever this script happened to be invoked FROM), not
+# the script's own directory, silently writing to the wrong place.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BINARY_DIR="${BINARY_DIR:-$SCRIPT_DIR/binaries}"
+BINARY_DIR="${BINARY_DIR:-$HOME/.hermes/aphrodite/binaries}"
 REPO="${REPO:-PlayForm/Aphrodite}"
 BIN_VERSION="${1:-}"
 TARGET="${2:-}"

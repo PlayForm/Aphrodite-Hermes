@@ -34,8 +34,9 @@ The `ln -s` line links the plugin into `~/.hermes/plugins/` manually - it is a
 required step; nothing in Aphrodite creates that link automatically.
 
 On first launch, the plugin **automatically downloads** the `aphrodite` binary
-from [releases](https://github.com/PlayForm/Aphrodite/releases). No Rust
-toolchain required.
+from [releases](https://github.com/PlayForm/Aphrodite/releases) into the
+canonical runtime home `~/.hermes/aphrodite/binaries/`. No Rust toolchain
+required.
 
 > [!IMPORTANT]
 >
@@ -78,7 +79,9 @@ After installing and launching Hermes once:
 ├── plugins/
 │   └── aphrodite → /path/to/Aphrodite-Hermes    ← manual symlink to this repo
 ├── aphrodite/
-│   ├── aphrodite                                 ← auto-downloaded binary (~12 MB)
+│   ├── binaries/
+│   │   ├── aphrodite                            ← auto-downloaded proxy binary (~12 MB)
+│   │   └── libaphrodite_hermes.dylib            ← auto-downloaded dylib
 │   ├── ccr.db                                    ← SQLite CCR store (on first run)
 │   └── proxy-stderr.log                          ← proxy logs (on failure)
 └── profiles/<name>/
@@ -128,7 +131,7 @@ curl http://127.0.0.1:9798/health
 ```bash
 hermes plugins disable aphrodite
 rm ~/.hermes/plugins/aphrodite   # remove the manual symlink you created
-pkill -f "aphrodite/binaries/aphrodite"
+pkill -f "$HOME/.hermes/aphrodite/binaries/aphrodite"
 ```
 
 ---
@@ -147,7 +150,7 @@ load the dylib via ctypes and register its surface with Hermes.
  Hermes Agent (hooks + tool dispatch)
     │
     ▼
- plugins/aphrodite/__init__.py        ← 948-line Python loader
+ plugins/aphrodite/__init__.py        ← 1005-line Python loader
     │  ctypes FFI, registers hooks/tools/engine - no logic
     ▼
  libaphrodite_hermes.dylib            ← Hermes bridge (JSON contract)
@@ -272,11 +275,14 @@ when a `cargo watch` dev loop runs the proxy itself.
 
 Custom behavioral directives are `name.md` files in
 `~/.hermes/aphrodite/directives/` - an empty file means an intentionally
-empty directive. The plugin ships its own `directives/` set, auto-exposed
-to the dylib via `APHRODITE_DIRECTIVES_DIR` (override the env var to point
-elsewhere). If no directive directory is found, the compiled built-in set
-loads as a fallback - its activation is logged. Manage them at runtime with
-`aphrodite_directive` (`list`/`swap`/`add`/`load`/`remove`/`reset`).
+empty directive. The plugin does NOT ship a `directives/` set: the binary
+provides them (embedded builtins) and materializes them into the user-data
+home at startup/setup, so the plugin dir stays a pure loader. The dylib
+reads them from `APHRODITE_DIRECTIVES_DIR` (defaults to
+`~/.hermes/aphrodite/directives`, user override wins). If no directive
+directory is found, the compiled built-in set loads as a fallback - its
+activation is logged. Manage them at runtime with `aphrodite_directive`
+(`list`/`swap`/`add`/`load`/`remove`/`reset`).
 
 ---
 
@@ -299,14 +305,16 @@ cargo build -p aphrodite
 
 ```text
 Aphrodite-Hermes/
-├── __init__.py          ← 948-line Python loader (ctypes FFI)
+├── __init__.py          ← 1005-line Python loader (ctypes FFI)
 ├── plugin.yaml          ← 13 tools, 6 hooks, context engine
 ├── download.sh          ← Binary auto-downloader (macOS/Linux/Git Bash/WSL)
 ├── download.ps1         ← Binary auto-downloader (native Windows PowerShell)
 ├── BINARY_VERSION       ← Pinned binary release tag
-├── binaries/            ← Platform-native dylib + proxy binary
-├── directives/          ← Plugin-side directive set
 ├── tests/               ← Plugin test suite
 ├── README.md            ← This file
 └── .gitignore
 ```
+
+Runtime binaries are **not** stored here - `download.sh` / `download.ps1`
+install them into `~/.hermes/aphrodite/binaries/` (the canonical runtime
+home), never into this directory.
