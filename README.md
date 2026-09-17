@@ -30,6 +30,9 @@ hermes plugins enable aphrodite
 hermes
 ```
 
+The `ln -s` line links the plugin into `~/.hermes/plugins/` manually - it is a
+required step; nothing in Aphrodite creates that link automatically.
+
 On first launch, the plugin **automatically downloads** the `aphrodite` binary
 from [releases](https://github.com/PlayForm/Aphrodite/releases). No Rust
 toolchain required.
@@ -73,14 +76,14 @@ After installing and launching Hermes once:
 ```text
 ~/.hermes/
 ├── plugins/
-│   └── aphrodite → /path/to/Aphrodite-Hermes    ← symlink to this repo
+│   └── aphrodite → /path/to/Aphrodite-Hermes    ← manual symlink to this repo
 ├── aphrodite/
 │   ├── aphrodite                                 ← auto-downloaded binary (~12 MB)
 │   ├── ccr.db                                    ← SQLite CCR store (on first run)
 │   └── proxy-stderr.log                          ← proxy logs (on failure)
 └── profiles/<name>/
     └── plugins/
-        └── aphrodite → ~/.hermes/plugins/aphrodite
+        └── aphrodite → ~/.hermes/plugins/aphrodite    ← resolves to the manual link
 ```
 
 The plugin also adds to your Hermes config:
@@ -124,7 +127,7 @@ curl http://127.0.0.1:9798/health
 
 ```bash
 hermes plugins disable aphrodite
-rm ~/.hermes/plugins/aphrodite
+rm ~/.hermes/plugins/aphrodite   # remove the manual symlink you created
 pkill -f "aphrodite/binaries/aphrodite"
 ```
 
