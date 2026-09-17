@@ -27,15 +27,6 @@ __all__ = ["check_and_heal"]
 logger = logging.getLogger("aphrodite")
 
 _SCHEMA_NAME = "layout_schema.json"
-_DEFAULT_PROFILES = (
-    "barebone",
-    "proxy-cache",
-    "proxy-token",
-    "compress-off",
-    "compress-light",
-    "compress-medium",
-    "compress-aggressive",
-)
 _DEFAULT_FORBIDDEN = ("binaries", "aphrodite.toml", "ccr.db")
 _DEFAULT_RUNTIME_FORBIDDEN = (
     "__init__.py",
@@ -298,9 +289,8 @@ def check_and_heal(home_dir=None, dry_run=False, plugin_dir=None) -> dict:
         the filesystem.
     plugin_dir : path-like or None
         The plugin's real location (defaults to the directory containing this
-        module).  Used to build the plugin symlink and to resolve the repo
-        root for profile symlinks; the plugin may itself be a symlink, so the
-        resolved path is authoritative.
+        module).  Used to build the plugin symlink; the plugin may itself be
+        a symlink, so the resolved path is authoritative.
 
     Returns
     -------
@@ -344,7 +334,6 @@ def check_and_heal(home_dir=None, dry_run=False, plugin_dir=None) -> dict:
         hermes_root = (Path(home_dir).expanduser() if home_dir else Path.home()) / ".hermes"
         runtime_home = hermes_root / "aphrodite"
         plugin_link = hermes_root / "plugins" / "aphrodite"
-        profiles_dir = hermes_root / "profiles"
         backup_dir = runtime_home / ".stale-backup"
 
         # --- plugin real location (plugin may itself be a symlink) ----------- #
@@ -367,7 +356,7 @@ def check_and_heal(home_dir=None, dry_run=False, plugin_dir=None) -> dict:
         repo_root = None
         if plugin_real is not None:
             for candidate in (plugin_real.parent.parent, plugin_real.parent):
-                if (candidate / "profiles").is_dir():
+                if (candidate / "crates").is_dir():
                     repo_root = candidate
                     break
         checkout = bool(
@@ -545,36 +534,6 @@ def check_and_heal(home_dir=None, dry_run=False, plugin_dir=None) -> dict:
                 _ensure_symlink(plugin_link, plugin_real, dry_run, _action, _warn, "plugin path")
             else:
                 _warn("plugin symlink not created: plugin real path unavailable")
-
-        # --- ~/.hermes/profiles/aphrodite-* ---------------------------------- #
-        for pname in schema.get("profiles") or list(_DEFAULT_PROFILES):
-            link = profiles_dir / f"aphrodite-{pname}"
-            expected = repo_root / "profiles" / f"aphrodite-{pname}" if repo_root else None
-            if expected is None or not expected.is_dir():
-                _check(
-                    f"profile:{pname}",
-                    "mismatch",
-                    f"profile symlink {link} missing (repo target unavailable)",
-                )
-                _warn(f"cannot resolve repo profiles root; profile link aphrodite-{pname} not created")
-                continue
-            if link.is_symlink():
-                resolved_link = link.resolve()
-                if resolved_link.is_dir():
-                    if resolved_link != expected.resolve():
-                        _warn(f"profile link {link} -> {resolved_link} differs from expected {expected}; left as-is")
-                    _check(f"profile:{pname}", "ok", f"{link} -> {resolved_link}")
-                else:
-                    _check(f"profile:{pname}", "mismatch", f"profile link {link} is dangling (-> {resolved_link})")
-                    _warn(f"dangling profile link {link} left as-is (ambiguous)")
-                continue
-            if link.exists():
-                _check(f"profile:{pname}", "mismatch", f"profile path {link} exists but is not a symlink")
-                if _ensure_symlink(link, expected, dry_run, _action, _warn, "profile path") == "skipped":
-                    _warn(f"profile path {link} left as-is (non-empty or in use)")
-                continue
-            _check(f"profile:{pname}", "mismatch", f"missing profile symlink {link} (expected -> {expected})")
-            _ensure_symlink(link, expected, dry_run, _action, _warn, "profile path")
 
         # --- config presence ------------------------------------------------- #
         config_present = config_canonical.is_file() or config_canonical.is_symlink()

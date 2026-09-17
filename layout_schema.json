@@ -105,15 +105,6 @@
       "canonical_target": "<plugin real path>: repo plugins/aphrodite or standalone install",
       "overrides": [],
       "note": "Pure loader/downloader. Must be a symlink to the plugin; never a real directory holding binaries, config, or ccr.db."
-    },
-    "~/.hermes/profiles/aphrodite-*": {
-      "kind": "symlink",
-      "required": true,
-      "contents_forbidden": [],
-      "canonical_target": "<repo root>/profiles/aphrodite-<name>",
-      "overrides": [],
-      "expand": "profiles",
-      "note": "One symlink per profile name listed under 'profiles'."
     }
   },
   "plugin_dir_forbidden": ["binaries", "aphrodite.toml", "ccr.db"],
@@ -127,18 +118,9 @@
     "layout_check.py",
     "layout_schema.json"
   ],
-  "profiles": [
-    "barebone",
-    "proxy-cache",
-    "proxy-token",
-    "compress-off",
-    "compress-light",
-    "compress-medium",
-    "compress-aggressive"
-  ],
   "heal_rules": {
     "move_forbidden_to_runtime_home": "copy + verify byte-identical + remove source; never overwrite an existing destination; identical duplicate at destination removes only the stale source; differing destination is warn-and-skip",
-    "create_missing_symlinks": "plugin symlink and profile symlinks are recreated pointing at the plugin's real path (Path.resolve()); never clobber non-empty real directories",
+    "create_missing_symlinks": "plugin symlink is recreated pointing at the plugin's real path (Path.resolve()); never clobber non-empty real directories",
     "dangling_or_ambiguous": "warn and skip, report-only",
     "never_touch_repo_checkout": "if the plugin resolves into a git checkout, misplaced files are reported but not moved (developers manage the checkout)",
     "quarantine_stale_plugin_source": "stray plugin-source files in the runtime home are moved to ~/.hermes/aphrodite/.stale-backup/ when their content verifies as an old or current plugin version (never hard-deleted); warn-and-skip when the file cannot be compared to the tracked plugin file",

@@ -84,9 +84,6 @@ After installing and launching Hermes once:
 │   │   └── libaphrodite_hermes.dylib            ← auto-downloaded dylib
 │   ├── ccr.db                                    ← SQLite CCR store (on first run)
 │   └── proxy-stderr.log                          ← proxy logs (on failure)
-└── profiles/<name>/
-    └── plugins/
-        └── aphrodite → ~/.hermes/plugins/aphrodite    ← resolves to the manual link
 ```
 
 The plugin also adds to your Hermes config:
