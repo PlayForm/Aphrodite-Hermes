@@ -4,14 +4,14 @@
 >
 > **CCR compression plugin for Hermes Agent - thin Python loader + Rust dylib.**
 > Sub-ms tool output compression, 28-type classifier, 13 tools, 6 hooks,
-> context engine, dylib hot-reload, 9 bundled skills.
+> context engine, dylib hot-reload. Skills ship dev-side, not with the plugin.
 
 Aphrodite intercepts tool output before it reaches the LLM and replaces it with
 compact, structured previews. The agent sees 15 tokens of metadata instead of
 500 tokens of raw text - and retrieves the full content only when it actually
 needs it. **All compression logic runs in the Rust dylib.**
 
-[![plugin](https://img.shields.io/static/v1?label=plugin&message=v2.1.2&color=purple)](plugin.yaml)
+[![plugin](https://img.shields.io/static/v1?label=plugin&message=v2.1.4&color=purple)](plugin.yaml)
 [![hermes](https://img.shields.io/static/v1?label=hermes&message=0.16.0%2B&color=blue)](https://github.com/NousResearch/hermes-agent)
 [![license](https://img.shields.io/static/v1?label=license&message=CC0-1.0&color=lightgrey)](LICENSE)
 
@@ -30,9 +30,15 @@ hermes plugins enable aphrodite
 hermes
 ```
 
+The `ln -s` line links the plugin into `~/.hermes/plugins/` so Hermes can
+discover it. Create it at install time: the plugin's startup layout self-heal
+(`layout_check.py`) can only recreate the link once Hermes has already loaded
+the plugin from somewhere.
+
 On first launch, the plugin **automatically downloads** the `aphrodite` binary
-from [releases](https://github.com/PlayForm/Aphrodite/releases). No Rust
-toolchain required.
+from [releases](https://github.com/PlayForm/Aphrodite/releases) into the
+canonical runtime home `~/.hermes/aphrodite/binaries/`. No Rust toolchain
+required.
 
 > [!IMPORTANT]
 >
@@ -73,14 +79,13 @@ After installing and launching Hermes once:
 ```text
 ~/.hermes/
 ├── plugins/
-│   └── aphrodite → /path/to/Aphrodite-Hermes    ← symlink to this repo
+│   └── aphrodite → /path/to/Aphrodite-Hermes    ← manual symlink to this repo
 ├── aphrodite/
-│   ├── aphrodite                                 ← auto-downloaded binary (~12 MB)
+│   ├── binaries/
+│   │   ├── aphrodite                            ← auto-downloaded proxy binary (~35 MB)
+│   │   └── libaphrodite_hermes.dylib            ← auto-downloaded dylib
 │   ├── ccr.db                                    ← SQLite CCR store (on first run)
 │   └── proxy-stderr.log                          ← proxy logs (on failure)
-└── profiles/<name>/
-    └── plugins/
-        └── aphrodite → ~/.hermes/plugins/aphrodite
 ```
 
 The plugin also adds to your Hermes config:
@@ -115,7 +120,7 @@ aphrodite_stats
 
 # Or via CLI:
 curl http://127.0.0.1:9798/health
-# → {"status":"healthy","version":"<current aphrodite version - see the badge above>"}
+# → {"status":"healthy","version":"<installed binary version - see BINARY_VERSION>"}
 ```
 
 ### Clean uninstall
@@ -124,8 +129,8 @@ curl http://127.0.0.1:9798/health
 
 ```bash
 hermes plugins disable aphrodite
-rm ~/.hermes/plugins/aphrodite
-pkill -f "aphrodite/binaries/aphrodite"
+rm ~/.hermes/plugins/aphrodite   # remove the manual symlink you created
+pkill -f "$HOME/.hermes/aphrodite/binaries/aphrodite"
 ```
 
 ---
@@ -144,11 +149,11 @@ load the dylib via ctypes and register its surface with Hermes.
  Hermes Agent (hooks + tool dispatch)
     │
     ▼
- plugins/aphrodite/__init__.py        ← 948-line Python loader
-    │  ctypes FFI, registers hooks/tools/skills/engine - no logic
+ plugins/aphrodite/__init__.py        ← 1257-line Python loader
+    │  ctypes FFI, registers hooks/tools/engine - no logic
     ▼
  libaphrodite_hermes.dylib            ← Hermes bridge (JSON contract)
-    │  6 hooks · 13 tools · schemas · skills
+    │  6 hooks · 13 tools · schemas
     ▼
  libaphrodite (core engine)           ← ALL compression logic
     │  hooks · resolve · retrieve · marker · preview
@@ -269,11 +274,14 @@ when a `cargo watch` dev loop runs the proxy itself.
 
 Custom behavioral directives are `name.md` files in
 `~/.hermes/aphrodite/directives/` - an empty file means an intentionally
-empty directive. The plugin ships its own `directives/` set, auto-exposed
-to the dylib via `APHRODITE_DIRECTIVES_DIR` (override the env var to point
-elsewhere). If no directive directory is found, the compiled built-in set
-loads as a fallback - its activation is logged. Manage them at runtime with
-`aphrodite_directive` (`list`/`swap`/`add`/`load`/`remove`/`reset`).
+empty directive. The plugin does NOT ship a `directives/` set: the binary
+provides them (embedded builtins) and materializes them into the user-data
+home at startup/setup, so the plugin dir stays a pure loader. The dylib
+reads them from `APHRODITE_DIRECTIVES_DIR` (defaults to
+`~/.hermes/aphrodite/directives`, user override wins). If no directive
+directory is found, the compiled built-in set loads as a fallback - its
+activation is logged. Manage them at runtime with `aphrodite_directive`
+(`list`/`swap`/`add`/`load`/`remove`/`reset`).
 
 ---
 
@@ -284,9 +292,18 @@ loads as a fallback - its activation is logged. Manage them at runtime with
 ```bash
 git clone https://github.com/PlayForm/Aphrodite.git
 cd Aphrodite
-cargo build -p aphrodite
-# Dylib at target/debug/libaphrodite.dylib - auto-detected by plugin
+cargo build -p aphrodite-hermes
+# Dylib: target/debug/libaphrodite_hermes.dylib (crate aphrodite-hermes;
+# `-p aphrodite` alone builds only the proxy binary). The loader resolves the
+# dylib from the canonical runtime home first (env override
+# APHRODITE_HERMES_DYLIB_PATH wins when set), so a dev loop copies it there:
+mkdir -p ~/.hermes/aphrodite/binaries
+cp target/debug/libaphrodite_hermes.dylib ~/.hermes/aphrodite/binaries/
 ```
+
+An already-running dev proxy (`cargo run -p aphrodite`) that answers the
+health endpoints is reused instead of relaunched - the plugin probes both
+ports before launching (see `_start_proxy`).
 
 ---
 
@@ -296,14 +313,16 @@ cargo build -p aphrodite
 
 ```text
 Aphrodite-Hermes/
-├── __init__.py          ← 948-line Python loader (ctypes FFI)
+├── __init__.py          ← 1257-line Python loader (ctypes FFI)
 ├── plugin.yaml          ← 13 tools, 6 hooks, context engine
 ├── download.sh          ← Binary auto-downloader (macOS/Linux/Git Bash/WSL)
 ├── download.ps1         ← Binary auto-downloader (native Windows PowerShell)
 ├── BINARY_VERSION       ← Pinned binary release tag
-├── binaries/            ← Platform-native dylib + proxy binary
-├── directives/          ← Plugin-side directive set
 ├── tests/               ← Plugin test suite
 ├── README.md            ← This file
 └── .gitignore
 ```
+
+Runtime binaries are **not** stored here - `download.sh` / `download.ps1`
+install them into `~/.hermes/aphrodite/binaries/` (the canonical runtime
+home), never into this directory.

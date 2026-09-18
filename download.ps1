@@ -18,10 +18,13 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-# 03-F18: default BinaryDir relative to the script's own directory, not
-# $PWD (wherever this script happened to be invoked from) - see download.sh's
-# matching fix for the same bug.
-$BinaryDir = if ($env:BINARY_DIR) { $env:BINARY_DIR } else { Join-Path $ScriptDir 'binaries' }
+# BinaryDir defaults to the canonical runtime home
+# (~/.hermes/aphrodite/binaries) - the same directory the Hermes plugin's
+# __init__.py resolves. The $env:BINARY_DIR override keeps working exactly
+# as before (scripts/CI may set it); a bare 'binaries' relative default
+# used to depend on $PWD (wherever this script happened to be invoked
+# from), silently writing to the wrong place.
+$BinaryDir = if ($env:BINARY_DIR) { $env:BINARY_DIR } else { Join-Path $HOME '.hermes/aphrodite/binaries' }
 $Repo = if ($env:REPO) { $env:REPO } else { 'PlayForm/Aphrodite' }
 
 # ── Auto-detect version ──────────────────────────────────────────────
