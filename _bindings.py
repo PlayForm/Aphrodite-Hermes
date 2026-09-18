@@ -4,7 +4,6 @@ Canonical provenance: crates/aphrodite-hermes/build.rs -> cbindgen ->
 aphrodite_hermes.h -> ctypesgen -> codegen/finalize_bindings.py.
 Do not modify this file.
 """
-
 __docformat__ = "restructuredtext"
 
 from ctypes import *  # noqa: F401, F403 - ctypesgen preamble (c_int, c_void_p, c_char_p, sizeof, ...)
@@ -30,7 +29,6 @@ _libs = {}
 # pointer int, mirroring its _manual_ffi_setup); the String helper class is
 # stripped with the dead preamble.
 
-
 def bind_to(_dylib):
     """Replay the generated declarations onto an already-loaded CDLL handle.
 
@@ -41,7 +39,7 @@ def bind_to(_dylib):
     None. errcheck is never applied: the plugin reads raw pointers and frees
     them through the same handle that produced them.
     """
-    _libs["__APHRODITE_DYLIB__"] = _dylib
+    _libs['__APHRODITE_DYLIB__'] = _dylib
     for _lib in _libs.values():
         if not hasattr(_lib, "aphrodite_hermes_dispatch_tool"):
             continue
@@ -126,9 +124,7 @@ def bind_to(_dylib):
     for _lib in _libs.values():
         if not hasattr(_lib, "aphrodite_hermes_materialize_directives"):
             continue
-        aphrodite_hermes_materialize_directives = getattr(
-            _lib, "aphrodite_hermes_materialize_directives"
-        )
+        aphrodite_hermes_materialize_directives = getattr(_lib, "aphrodite_hermes_materialize_directives")
         aphrodite_hermes_materialize_directives.argtypes = [c_char_p]
         aphrodite_hermes_materialize_directives.restype = c_void_p
         break
@@ -136,3 +132,4 @@ def bind_to(_dylib):
     # No inserted files
 
     # No prefix-stripping
+
