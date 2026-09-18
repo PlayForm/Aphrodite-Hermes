@@ -1,10 +1,9 @@
 """Self-healing layout checker for the Aphrodite Hermes plugin.
 
 Detects and repairs deviations from the canonical ~/.hermes layout described
-in layout_schema.json (design notes: .hermes/notes/LAYOUT-SELF-HEAL.md).
-The plugin calls ``check_and_heal()`` at startup so a broken install (wrong
-symlinks, misplaced config/binaries, stray plugin-source copies, dangling
-links, stale copies) is fixed automatically.
+in layout_schema.json. The plugin calls ``check_and_heal()`` at startup so a
+broken install (wrong symlinks, misplaced config/binaries, stray plugin-source
+copies, dangling links, stale copies) is fixed automatically.
 
 The module is standalone: it imports only the standard library, so tests can
 run it directly without Hermes or the rest of the plugin package.  It never

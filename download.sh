@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # aphrodite - download prebuilt binary from GitHub Releases
 # Usage: bash download.sh [version] [target-triple]
-#   version: auto-detected from Cargo.toml (monorepo), falls back to plugin.yaml
+#   version: auto-detected from BINARY_VERSION -> Cargo.toml (monorepo) ->
+#            GitHub API latest release, in that order
 #   target:  auto-detected from uname -sm
 
 set -euo pipefail

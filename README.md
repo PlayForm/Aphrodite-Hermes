@@ -30,8 +30,10 @@ hermes plugins enable aphrodite
 hermes
 ```
 
-The `ln -s` line links the plugin into `~/.hermes/plugins/` manually - it is a
-required step; nothing in Aphrodite creates that link automatically.
+The `ln -s` line links the plugin into `~/.hermes/plugins/` so Hermes can
+discover it. Create it at install time: the plugin's startup layout self-heal
+(`layout_check.py`) can only recreate the link once Hermes has already loaded
+the plugin from somewhere.
 
 On first launch, the plugin **automatically downloads** the `aphrodite` binary
 from [releases](https://github.com/PlayForm/Aphrodite/releases) into the
@@ -80,7 +82,7 @@ After installing and launching Hermes once:
 │   └── aphrodite → /path/to/Aphrodite-Hermes    ← manual symlink to this repo
 ├── aphrodite/
 │   ├── binaries/
-│   │   ├── aphrodite                            ← auto-downloaded proxy binary (~12 MB)
+│   │   ├── aphrodite                            ← auto-downloaded proxy binary (~35 MB)
 │   │   └── libaphrodite_hermes.dylib            ← auto-downloaded dylib
 │   ├── ccr.db                                    ← SQLite CCR store (on first run)
 │   └── proxy-stderr.log                          ← proxy logs (on failure)
@@ -118,7 +120,7 @@ aphrodite_stats
 
 # Or via CLI:
 curl http://127.0.0.1:9798/health
-# → {"status":"healthy","version":"<current aphrodite version - see the badge above>"}
+# → {"status":"healthy","version":"<installed binary version - see BINARY_VERSION>"}
 ```
 
 ### Clean uninstall
@@ -147,7 +149,7 @@ load the dylib via ctypes and register its surface with Hermes.
  Hermes Agent (hooks + tool dispatch)
     │
     ▼
- plugins/aphrodite/__init__.py        ← 1005-line Python loader
+ plugins/aphrodite/__init__.py        ← 1257-line Python loader
     │  ctypes FFI, registers hooks/tools/engine - no logic
     ▼
  libaphrodite_hermes.dylib            ← Hermes bridge (JSON contract)
@@ -290,9 +292,18 @@ activation is logged. Manage them at runtime with `aphrodite_directive`
 ```bash
 git clone https://github.com/PlayForm/Aphrodite.git
 cd Aphrodite
-cargo build -p aphrodite
-# Dylib at target/debug/libaphrodite.dylib - auto-detected by plugin
+cargo build -p aphrodite-hermes
+# Dylib: target/debug/libaphrodite_hermes.dylib (crate aphrodite-hermes;
+# `-p aphrodite` alone builds only the proxy binary). The loader resolves the
+# dylib from the canonical runtime home first (env override
+# APHRODITE_HERMES_DYLIB_PATH wins when set), so a dev loop copies it there:
+mkdir -p ~/.hermes/aphrodite/binaries
+cp target/debug/libaphrodite_hermes.dylib ~/.hermes/aphrodite/binaries/
 ```
+
+An already-running dev proxy (`cargo run -p aphrodite`) that answers the
+health endpoints is reused instead of relaunched - the plugin probes both
+ports before launching (see `_start_proxy`).
 
 ---
 
@@ -302,7 +313,7 @@ cargo build -p aphrodite
 
 ```text
 Aphrodite-Hermes/
-├── __init__.py          ← 1005-line Python loader (ctypes FFI)
+├── __init__.py          ← 1257-line Python loader (ctypes FFI)
 ├── plugin.yaml          ← 13 tools, 6 hooks, context engine
 ├── download.sh          ← Binary auto-downloader (macOS/Linux/Git Bash/WSL)
 ├── download.ps1         ← Binary auto-downloader (native Windows PowerShell)
