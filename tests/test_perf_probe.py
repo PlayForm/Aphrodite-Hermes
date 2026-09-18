@@ -169,8 +169,7 @@ def test_compress_retrieve_roundtrip_latency_over_real_dylib(real_dylib, capsys)
         elapsed = time.perf_counter() - start
         latencies.append(elapsed)
         assert roundtrip == content, (
-            f"round-trip mismatch on sample {i}: got {len(roundtrip)}B, "
-            f"expected {len(content)}B"
+            f"round-trip mismatch on sample {i}: got {len(roundtrip)}B, expected {len(content)}B"
         )
 
     p50 = statistics.quantiles(latencies, n=100)[49]

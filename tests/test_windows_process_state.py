@@ -184,7 +184,9 @@ def _load_twice(tmp_path: Path, fake_dylib: Path, monkeypatch, lock_first_copy: 
 
 def test_second_exec_reuses_mapped_handle_without_recopying(isolated_home, monkeypatch):
     tmp_path, fake_dylib = isolated_home
-    first, second, h1, h2, copy = _load_twice(tmp_path, fake_dylib, monkeypatch, lock_first_copy=False)
+    first, second, h1, h2, copy = _load_twice(
+        tmp_path, fake_dylib, monkeypatch, lock_first_copy=False
+    )
 
     assert h2 is h1, "second shim copy must return the already-loaded handle"
     assert len(_FakeCDLL.instances) == 1, "dylib must be mapped exactly once per process"
@@ -211,7 +213,9 @@ def test_mtime_change_still_hot_reloads_across_shim_copies(isolated_home, monkey
     """The shared holder must not disable hot-reload: a genuinely rebuilt dylib
     (new mtime) still gets a fresh generation, and the old copy is removed."""
     tmp_path, fake_dylib = isolated_home
-    first, second, h1, h2, copy = _load_twice(tmp_path, fake_dylib, monkeypatch, lock_first_copy=False)
+    first, second, h1, h2, copy = _load_twice(
+        tmp_path, fake_dylib, monkeypatch, lock_first_copy=False
+    )
 
     os.utime(fake_dylib, (fake_dylib.stat().st_atime, fake_dylib.stat().st_mtime + 10))
     h3 = second._load_dylib()

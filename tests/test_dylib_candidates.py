@@ -32,9 +32,7 @@ from typing import Any
 
 # Load the plugin shim as a module without triggering Hermes registration.
 _PLUGIN = Path(__file__).resolve().parent.parent / "__init__.py"
-_spec = importlib.util.spec_from_file_location(
-    "_aphrodite_dylib_candidates_under_test", _PLUGIN
-)
+_spec = importlib.util.spec_from_file_location("_aphrodite_dylib_candidates_under_test", _PLUGIN)
 assert _spec is not None
 assert _spec.loader is not None
 _plugin = importlib.util.module_from_spec(_spec)
@@ -66,12 +64,7 @@ class DylibCandidatesTest(unittest.TestCase):
             shallow,
         )
         self.assertNotIn(
-            str(
-                Path("/opt/Aphrodite-Hermes")
-                / "target"
-                / "release"
-                / _plugin._DYLIB_NAME
-            ),
+            str(Path("/opt/Aphrodite-Hermes") / "target" / "release" / _plugin._DYLIB_NAME),
             shallow,
         )
 
@@ -83,9 +76,7 @@ class DylibCandidatesTest(unittest.TestCase):
         # (parents[3] out of range), so it would exercise just one fallback.
         deep = _dylib_candidates(Path("/repo/monorepo/plugins/aphrodite"))
         suffixes = [
-            c
-            for c in deep
-            if c.endswith(f"target{os.sep}release{os.sep}{_plugin._DYLIB_NAME}")
+            c for c in deep if c.endswith(f"target{os.sep}release{os.sep}{_plugin._DYLIB_NAME}")
         ]
         self.assertEqual(len(suffixes), 2)  # parents[2] and parents[3] fallbacks
 

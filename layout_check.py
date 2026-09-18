@@ -266,7 +266,11 @@ def _has_newer_than_canonical(src_dir: Path, canonical_dir: Path) -> bool:
                     return True
             elif child.is_file() and not child.is_symlink():
                 canon = canonical_dir / child.name
-                if canon.is_file() and not canon.is_symlink() and child.stat().st_mtime > canon.stat().st_mtime:
+                if (
+                    canon.is_file()
+                    and not canon.is_symlink()
+                    and child.stat().st_mtime > canon.stat().st_mtime
+                ):
                     return True
     except OSError:
         pass
@@ -342,7 +346,9 @@ def check_and_heal(home_dir=None, dry_run=False, plugin_dir=None) -> dict:
             plugin_real = Path(plugin_dir).expanduser().resolve()
         elif plugin_link.is_symlink():
             resolved_link = plugin_link.resolve()
-            plugin_real = resolved_link if resolved_link.is_dir() else Path(__file__).resolve().parent
+            plugin_real = (
+                resolved_link if resolved_link.is_dir() else Path(__file__).resolve().parent
+            )
         else:
             plugin_real = Path(__file__).resolve().parent
 
@@ -374,7 +380,9 @@ def check_and_heal(home_dir=None, dry_run=False, plugin_dir=None) -> dict:
         env_binary = os.environ.get("APHRODITE_BINARY_PATH")
         env_dylib = os.environ.get("APHRODITE_HERMES_DYLIB_PATH")
         platform_lib = _PLATFORM_LIB.get(sys.platform)
-        config_canonical = Path(env_config).expanduser() if env_config else runtime_home / "aphrodite.toml"
+        config_canonical = (
+            Path(env_config).expanduser() if env_config else runtime_home / "aphrodite.toml"
+        )
 
         # --- plugin scan dir (what the runtime plugin path actually is) ------ #
         if plugin_link.is_symlink():
@@ -471,9 +479,13 @@ def check_and_heal(home_dir=None, dry_run=False, plugin_dir=None) -> dict:
                     for src, dst in moves:
                         _move_out(src, dst, dry_run, _action, _warn)
                     if not dry_run:
-                        leftovers = [c.name for c in forbidden.iterdir() if c.exists() or c.is_symlink()]
+                        leftovers = [
+                            c.name for c in forbidden.iterdir() if c.exists() or c.is_symlink()
+                        ]
                         if leftovers:
-                            _warn(f"binaries left in plugin dir after env-override moves: {leftovers}")
+                            _warn(
+                                f"binaries left in plugin dir after env-override moves: {leftovers}"
+                            )
                         else:
                             _remove(forbidden)
                             _action(f"removed emptied binaries dir {forbidden}")
@@ -503,7 +515,9 @@ def check_and_heal(home_dir=None, dry_run=False, plugin_dir=None) -> dict:
                 continue
             tracked = plugin_real / name
             if not (tracked.is_file() and not tracked.is_symlink()):
-                _warn(f"cannot compare {stray} to tracked plugin file {tracked}; left as-is (ambiguous)")
+                _warn(
+                    f"cannot compare {stray} to tracked plugin file {tracked}; left as-is (ambiguous)"
+                )
                 continue
             # Content verifies as an old or current plugin-source copy: the
             # only safe reads are quarantine (never hard-delete user data).
@@ -520,13 +534,24 @@ def check_and_heal(home_dir=None, dry_run=False, plugin_dir=None) -> dict:
                     )
                 _check("plugin_link", "ok", f"{plugin_link} -> {resolved_link}")
             else:
-                _check("plugin_link", "mismatch", f"plugin link {plugin_link} is dangling (-> {resolved_link})")
+                _check(
+                    "plugin_link",
+                    "mismatch",
+                    f"plugin link {plugin_link} is dangling (-> {resolved_link})",
+                )
                 _warn(f"dangling plugin link {plugin_link} left as-is (ambiguous)")
         elif plugin_link.exists():
-            _check("plugin_link", "mismatch", f"plugin path {plugin_link} is a real directory, not a symlink")
+            _check(
+                "plugin_link",
+                "mismatch",
+                f"plugin path {plugin_link} is a real directory, not a symlink",
+            )
             if plugin_real is None or not plugin_real.is_dir():
                 _warn(f"cannot convert {plugin_link} to a symlink: plugin real path unavailable")
-            elif _ensure_symlink(plugin_link, plugin_real, dry_run, _action, _warn, "plugin path") == "skipped":
+            elif (
+                _ensure_symlink(plugin_link, plugin_real, dry_run, _action, _warn, "plugin path")
+                == "skipped"
+            ):
                 _warn(f"plugin path {plugin_link} left as-is (non-empty or in use)")
         else:
             _check("plugin_link", "mismatch", f"missing plugin symlink {plugin_link}")
@@ -548,7 +573,11 @@ def check_and_heal(home_dir=None, dry_run=False, plugin_dir=None) -> dict:
         elif config_present:
             _check("config_present", "ok", f"config at {config_canonical}")
         else:
-            _check("config_present", "mismatch", f"aphrodite.toml missing from runtime home {runtime_home}")
+            _check(
+                "config_present",
+                "mismatch",
+                f"aphrodite.toml missing from runtime home {runtime_home}",
+            )
             _warn(
                 "aphrodite.toml not found in runtime home and APHRODITE_CONFIG_PATH "
                 "unset; plugin may need a fresh download or a user copy"
@@ -556,8 +585,7 @@ def check_and_heal(home_dir=None, dry_run=False, plugin_dir=None) -> dict:
 
         if dry_run:
             _warn(
-                "dry run: no changes made; "
-                f"{len(report['mismatches'])} mismatch(es) reported above"
+                f"dry run: no changes made; {len(report['mismatches'])} mismatch(es) reported above"
             )
     except Exception as exc:  # defensive: layout heal must never crash the plugin
         logger.warning("aphrodite layout: check_and_heal aborted: %r", exc)
