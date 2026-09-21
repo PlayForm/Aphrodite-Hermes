@@ -31,10 +31,30 @@ _DYLIB_NAME = (
     else "aphrodite_hermes.dll"
 )
 # Canonical runtime home: every runtime artifact (binaries, dylib,
-# aphrodite.toml, ccr.db, hotreload cache) lives under
-# ~/.hermes/aphrodite, never inside the plugin tree. Env overrides stay
-# first; the plugin-dir binaries/ paths survive only as legacy fallbacks.
-_BINARIES_DIR = Path.home() / ".hermes" / "aphrodite" / "binaries"
+# aphrodite.toml, ccr.db) lives under <hermes-home>/aphrodite, never inside
+# the plugin tree. The Hermes home is $HERMES_HOME when set (the catalog
+# validate probe runs register() against a scratch HERMES_HOME - honoring it
+# keeps every runtime write inside the scratch home, never the real
+# ~/.hermes), else ~/.hermes. Env overrides stay first; the plugin-dir
+# binaries/ paths survive only as shipped-binary fallbacks.
+def _hermes_home() -> Path:
+    """Hermes home: ``$HERMES_HOME`` when set (expanded), else ``~/.hermes``.
+
+    Mirrors Hermes' own resolution (hermes_constants.get_hermes_home):
+    context override -> env var -> platform default. The plugin must never
+    hardcode ``Path.home()/".hermes"`` - `hermes plugins validate` runs the
+    capability probe in a scratch child with a throwaway HERMES_HOME
+    (hermes_cli/plugin_validate.py), and writing runtime artifacts into the
+    real home from there is exactly the pollution the catalog review
+    flagged (teknium review, PR 118488).
+    """
+    override = os.environ.get("HERMES_HOME", "").strip()
+    if override:
+        return Path(override).expanduser()
+    return Path.home() / ".hermes"
+
+
+_BINARIES_DIR = _hermes_home() / "aphrodite" / "binaries"
 _DYLIB_PATH = os.environ.get("APHRODITE_HERMES_DYLIB_PATH", str(_BINARIES_DIR / _DYLIB_NAME))
 _BINARY_NAME = "aphrodite.exe" if sys.platform == "win32" else "aphrodite"
 _BINARY_PATH = os.environ.get("APHRODITE_BINARY_PATH", str(_BINARIES_DIR / _BINARY_NAME))
@@ -85,22 +105,19 @@ except Exception as _bindings_err:  # ImportError (absent), SyntaxError (corrupt
 # materialized set; os.environ.setdefault keeps a user-provided
 # APHRODITE_DIRECTIVES_DIR override authoritative.
 os.environ.setdefault(
-    "APHRODITE_DIRECTIVES_DIR", str(Path.home() / ".hermes" / "aphrodite" / "directives")
+    "APHRODITE_DIRECTIVES_DIR", str(_hermes_home() / "aphrodite" / "directives")
 )
 
 # ── Per-process dylib state ──
 # Hermes builds one PluginManager per Hermes home (root home + every
 # profile) and exec_module()s this shim once per home under a distinct
-# module name. Plain module globals therefore restart from scratch on the
-# second load: `_dylib_gen` yields 0 again, `_load_fresh_copy` targets the
-# very same `<name>.<pid>.0` path the first load already mapped, and on
-# Windows overwriting a mapped DLL fails with PermissionError [Errno 13].
-# Keeping the state in a synthetic module registered under a fixed name in
-# sys.modules makes it survive re-exec: later copies of the shim find the
-# holder, hit the mtime early-return in `_load_dylib`, and reuse the CDLL
-# handle that is already mapped instead of copying (and leaking) a second
-# image. A ModuleType (not a namespace/class instance) so it is keyed by a
-# stable name rather than by the identity of whichever shim created it.
+# module name. Keeping the state in a synthetic module registered under a
+# fixed name in sys.modules makes it survive re-exec: later copies of the
+# shim find the holder and reuse the CDLL handle that is already mapped
+# (dlopen memoizes by canonical path, so repeated loads of the same path
+# converge on one image). A ModuleType (not a namespace/class instance) so
+# it is keyed by a stable name rather than by the identity of whichever
+# shim created it.
 _STATE_MODULE_NAME = "aphrodite_hermes._process_state"
 
 
@@ -110,19 +127,12 @@ def _process_state() -> types.ModuleType:
         _STATE_MODULE_NAME, "Process-global aphrodite dylib state shared by every loaded shim copy."
     )
     holder.dylib = None  # type: ignore[attr-defined]  # ctypes.CDLL | None
-    holder.dylib_mtime = 0.0  # type: ignore[attr-defined]
-    holder.dylib_copy_path = None  # type: ignore[attr-defined]  # str | None
-    holder.dylib_gen = itertools.count()  # type: ignore[attr-defined]
-    # Guards dylib/dylib_mtime: ctypes releases the GIL during foreign calls,
-    # so two Hermes threads can race through _load_dylib during a reload
-    # window (F12) - worst case one thread frees a string through a
-    # half-swapped reference, compounding the split-brain hazard below (F4).
+    # Guards dylib: ctypes releases the GIL during foreign calls, so two
+    # Hermes threads can race through _load_dylib (worst case one thread
+    # reads a half-swapped reference).
     holder.lock = threading.Lock()  # type: ignore[attr-defined]
-    holder.atexit_registered = False  # type: ignore[attr-defined]
     # Dylib source paths already subprocess smoke-tested in THIS process
-    # (harden item 6): the probe runs once per unique path, never again on
-    # later hot-reload mtime checks (a subprocess spawn per reload would be
-    # wasteful and would add latency to every rebuild loop).
+    # (harden item 6): the probe runs once per unique path, never again.
     holder.probed_paths: set[str] = set()  # type: ignore[attr-defined]
     try:
         # dict.setdefault is atomic under the GIL, so two shim copies
@@ -150,10 +160,10 @@ def _data_dir() -> Path:
         override = os.environ.get("APHRODITE_HOME")
         if override:
             return Path(override).expanduser()
-        return Path.home() / ".hermes" / "aphrodite"
+        return _hermes_home() / "aphrodite"
     except Exception as e:
-        _log.warning("_data_dir: %s; falling back to ~/.hermes/aphrodite", e)
-        return Path.home() / ".hermes" / "aphrodite"
+        _log.warning("_data_dir: %s; falling back to <hermes-home>/aphrodite", e)
+        return _hermes_home() / "aphrodite"
 
 
 def _hotreload_dir() -> str:
@@ -963,11 +973,11 @@ def _start_proxy():
         # registration - fall back to the default location, then give up
         # with a warning rather than raising.
         _log.warning(
-            "aphrodite data dir %s unusable (%s); falling back to ~/.hermes/aphrodite",
+            "aphrodite data dir %s unusable (%s); falling back to <hermes-home>/aphrodite",
             log_dir,
             e,
         )
-        log_dir = Path.home() / ".hermes" / "aphrodite"
+        log_dir = _hermes_home() / "aphrodite"
         try:
             log_dir.mkdir(parents=True, exist_ok=True)
         except OSError as e2:
