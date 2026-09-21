@@ -27,12 +27,15 @@ VERSION_RE='^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$'
 validate_version() {
 	local v="$1"
 	case "$v" in
-		''|.|v) echo "ERROR: empty/invalid BINARY_VERSION '$v'"; return 1 ;;
+	'' | . | v)
+		\echo "ERROR: empty/invalid BINARY_VERSION '$v'"
+		return 1
+		;;
 	esac
 	if [[ ! "$v" =~ $VERSION_RE ]]; then
-		echo "ERROR: BINARY_VERSION '$v' does not match the required pattern"
-		echo "  expected: ^[0-9]+.[0-9]+.[0-9]+([-.][0-9A-Za-z.]+)?\$"
-		echo "  (a malformed value can produce an invalid release URL and break the update path)"
+		\echo "ERROR: BINARY_VERSION '$v' does not match the required pattern"
+		\echo "  expected: ^[0-9]+.[0-9]+.[0-9]+([-.][0-9A-Za-z.]+)?\$"
+		\echo "  (a malformed value can produce an invalid release URL and break the update path)"
 		return 1
 	fi
 	return 0
@@ -46,8 +49,8 @@ fi
 if [[ -z "$BIN_VERSION" ]]; then
 	# 2. Cargo.toml - for developers with the full monorepo
 	for f in "$SCRIPT_DIR/../../crates/aphrodite/Cargo.toml" \
-	         "$SCRIPT_DIR/../../crates/aphrodite-hermes/Cargo.toml" \
-	         "$SCRIPT_DIR/../../../crates/aphrodite/Cargo.toml"; do
+		"$SCRIPT_DIR/../../crates/aphrodite-hermes/Cargo.toml" \
+		"$SCRIPT_DIR/../../../crates/aphrodite/Cargo.toml"; do
 		if [[ -f "$f" ]]; then
 			BIN_VERSION=$(grep '^version' "$f" | head -1 | awk -F'"' '{print $2}')
 			[[ -n "$BIN_VERSION" ]] && break
@@ -57,14 +60,14 @@ fi
 if [[ -z "$BIN_VERSION" ]]; then
 	# 3. GitHub API - query latest release tag (needs network, but reliable)
 	if command -v curl &>/dev/null; then
-		BIN_VERSION=$(curl -fsS --connect-timeout 10 --max-time 30 "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | \
+		BIN_VERSION=$(curl -fsS --connect-timeout 10 --max-time 30 "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null |
 			grep '"tag_name":' | head -1 | sed 's/.*"tag_name": *"Aphrodite\/v\([^"]*\)".*/\1/')
 	fi
 fi
 if [[ -z "$BIN_VERSION" ]]; then
-	echo "ERROR: could not determine binary version."
-	echo "  Pass explicitly: bash download.sh 1.0.5"
-	echo "  Or create a BINARY_VERSION file in $(dirname "$0")"
+	\echo "ERROR: could not determine binary version."
+	\echo "  Pass explicitly: bash download.sh 1.0.5"
+	\echo "  Or create a BINARY_VERSION file in $(dirname "$0")"
 	exit 1
 fi
 
@@ -75,20 +78,23 @@ validate_version "$BIN_VERSION" || exit 1
 if [[ -z "$TARGET" ]]; then
 	ARCH=$(uname -m)
 	case "$ARCH" in
-		arm64|aarch64) ARCH="aarch64" ;;
-		x86_64|amd64)   ARCH="x86_64" ;;
+	arm64 | aarch64) ARCH="aarch64" ;;
+	x86_64 | amd64) ARCH="x86_64" ;;
 	esac
 	OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 	case "$OS" in
-		darwin)  TARGET="${ARCH}-apple-darwin" ;;
-		linux)   TARGET="${ARCH}-unknown-linux-gnu" ;;
-		mingw*|msys*|cygwin*) TARGET="${ARCH}-pc-windows-msvc" ;;
-		*)       echo "ERROR: unsupported OS: $OS"; exit 1 ;;
+	darwin) TARGET="${ARCH}-apple-darwin" ;;
+	linux) TARGET="${ARCH}-unknown-linux-gnu" ;;
+	mingw* | msys* | cygwin*) TARGET="${ARCH}-pc-windows-msvc" ;;
+	*)
+		\echo "ERROR: unsupported OS: $OS"
+		exit 1
+		;;
 	esac
 fi
 
 # GitHub release tags include a 'v' prefix with URL-encoded slash: Aphrodite%2Fv1.0.6
-V="${BIN_VERSION#v}"  # strip any existing v so we don't double it
+V="${BIN_VERSION#v}" # strip any existing v so we don't double it
 BASE_URL="https://github.com/${REPO}/releases/download/Aphrodite%2Fv${V}"
 mkdir -p "${BINARY_DIR}"
 
@@ -107,9 +113,9 @@ elif command -v wget &>/dev/null; then
 	wget -q --connect-timeout=10 --timeout=30 -O "${SUMS_FILE}" "${BASE_URL}/${SUMS_ASSET}" 2>/dev/null && SUMS_OK=1
 fi
 if [[ "$SUMS_OK" -eq 1 ]]; then
-	echo "  ✓ fetched ${SUMS_ASSET}"
+	\echo "  ✓ fetched ${SUMS_ASSET}"
 else
-	echo "WARNING: ${SUMS_ASSET} not found - skipping checksum verification for this release (older release, or the sums asset failed to publish)"
+	\echo "WARNING: ${SUMS_ASSET} not found - skipping checksum verification for this release (older release, or the sums asset failed to publish)"
 fi
 
 # verify_checksum <asset-name> <dest-path>
@@ -126,7 +132,7 @@ verify_checksum() {
 	# is exact regardless).
 	expected=$(awk -v want="${asset}" '$2 == want { print $1; exit }' "${SUMS_FILE}" 2>/dev/null)
 	if [[ -z "$expected" ]]; then
-		echo "WARNING: ${asset} has no entry in ${SUMS_ASSET} - skipping checksum check for this asset"
+		\echo "WARNING: ${asset} has no entry in ${SUMS_ASSET} - skipping checksum check for this asset"
 		return 0
 	fi
 	if command -v shasum &>/dev/null; then
@@ -134,16 +140,16 @@ verify_checksum() {
 	elif command -v sha256sum &>/dev/null; then
 		actual=$(sha256sum "${dest}" | awk '{print $1}')
 	else
-		echo "WARNING: no shasum/sha256sum binary found - skipping checksum check for ${asset}"
+		\echo "WARNING: no shasum/sha256sum binary found - skipping checksum check for ${asset}"
 		return 0
 	fi
 	if [[ "$expected" != "$actual" ]]; then
-		echo "ERROR: checksum mismatch for ${asset}"
-		echo "  expected: ${expected}"
-		echo "  actual:   ${actual}"
+		\echo "ERROR: checksum mismatch for ${asset}"
+		\echo "  expected: ${expected}"
+		\echo "  actual:   ${actual}"
 		return 1
 	fi
-	echo "  ✓ ${asset} checksum verified"
+	\echo "  ✓ ${asset} checksum verified"
 }
 
 # fetch_and_validate <asset-name> <dest-path>
@@ -152,7 +158,7 @@ verify_checksum() {
 # restoring any prior copy on failure.
 fetch_and_validate() {
 	local asset="$1" dest="$2" url="${BASE_URL}/$1"
-	echo "  ${asset} -> ${dest}"
+	\echo "  ${asset} -> ${dest}"
 	[[ -f "${dest}" ]] && mv "${dest}" "${dest}.bak" 2>/dev/null || true
 
 	if command -v curl &>/dev/null; then
@@ -161,37 +167,37 @@ fetch_and_validate() {
 		# (these binaries run ~10-40MB, so this is a stall/hang guard, not a
 		# realistic-bandwidth budget).
 		curl -fSL --connect-timeout 10 --max-time 120 --progress-bar -o "${dest}" "${url}" || {
-			echo "ERROR: curl download failed: ${url}"
+			\echo "ERROR: curl download failed: ${url}"
 			[[ -f "${dest}.bak" ]] && mv "${dest}.bak" "${dest}"
 			return 1
 		}
 	elif command -v wget &>/dev/null; then
 		wget -q --connect-timeout=10 --timeout=120 --show-progress -O "${dest}" "${url}" || {
-			echo "ERROR: wget download failed: ${url}"
+			\echo "ERROR: wget download failed: ${url}"
 			[[ -f "${dest}.bak" ]] && mv "${dest}.bak" "${dest}"
 			return 1
 		}
 	else
-		echo "ERROR: neither curl nor wget found"
+		\echo "ERROR: neither curl nor wget found"
 		return 1
 	fi
 
 	local size magic valid=0
 	size=$(stat -f%z "${dest}" 2>/dev/null || stat -c%s "${dest}" 2>/dev/null || echo 0)
 	if [[ "$size" -eq 0 ]]; then
-		echo "ERROR: downloaded ${asset} is empty"
+		\echo "ERROR: downloaded ${asset} is empty"
 		[[ -f "${dest}.bak" ]] && mv "${dest}.bak" "${dest}"
 		return 1
 	fi
 	# POSIX od one-liner (no xxd/vim dependency): -An = no addresses, -tx1 = 1-byte hex
 	magic=$(head -c4 "${dest}" | od -An -tx1 | tr -d ' \n')
 	case "$magic" in
-		7f454c46) valid=1 ;;                              # ELF
-		cffaedfe|feedfacf|cefaedfe|cafebabe) valid=1 ;;   # Mach-O
-		4d5a*) valid=1 ;;                                 # PE
+	7f454c46) valid=1 ;;                                  # ELF
+	cffaedfe | feedfacf | cefaedfe | cafebabe) valid=1 ;; # Mach-O
+	4d5a*) valid=1 ;;                                     # PE
 	esac
 	if [[ "$valid" -eq 0 ]]; then
-		echo "ERROR: ${asset} has invalid magic bytes: ${magic}"
+		\echo "ERROR: ${asset} has invalid magic bytes: ${magic}"
 		[[ -f "${dest}.bak" ]] && mv "${dest}.bak" "${dest}"
 		return 1
 	fi
@@ -200,7 +206,7 @@ fetch_and_validate() {
 		return 1
 	fi
 	rm -f "${dest}.bak"
-	echo "  ✓ ${asset} (${size} bytes)"
+	\echo "  ✓ ${asset} (${size} bytes)"
 }
 
 # ── Asset + local names per platform ──
@@ -222,9 +228,9 @@ else
 	DYLIB_DEST="${BINARY_DIR}/libaphrodite_hermes.so"
 fi
 
-echo "aphrodite: downloading v${BIN_VERSION} for ${TARGET} from ${BASE_URL}"
+\echo "aphrodite: downloading v${BIN_VERSION} for ${TARGET} from ${BASE_URL}"
 fetch_and_validate "${BINARY_ASSET}" "${BINARY_PATH}" || exit 1
 chmod +x "${BINARY_PATH}"
 fetch_and_validate "${DYLIB_ASSET}" "${DYLIB_DEST}" || exit 1
 
-echo "aphrodite v${BIN_VERSION} installed: ${BINARY_PATH} + ${DYLIB_DEST}"
+\echo "aphrodite v${BIN_VERSION} installed: ${BINARY_PATH} + ${DYLIB_DEST}"
