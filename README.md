@@ -60,9 +60,9 @@ key the proxy refuses to start and the plugin is unusable.
 **`Terminal`**
 
 ```bash
-export APHRODITE_API_KEY="sk-..."                                  # REQUIRED
-export APHRODITE_API_URL="https://api.openai.com"                  # optional
-export APHRODITE_MODEL="default-model"                             # optional
+export APHRODITE_API_KEY="sk-..."                 # REQUIRED
+export APHRODITE_API_URL="https://api.openai.com" # optional
+export APHRODITE_MODEL="default-model"            # optional
 ```
 
 Alternatives: run `aphrodite setup`, or add `api_key` / `api_url` / `model` to
@@ -129,7 +129,7 @@ curl http://127.0.0.1:9798/health
 
 ```bash
 hermes plugins disable aphrodite
-rm ~/.hermes/plugins/aphrodite   # remove the manual symlink you created
+rm ~/.hermes/plugins/aphrodite # remove the manual symlink you created
 pkill -f "$HOME/.hermes/aphrodite/binaries/aphrodite"
 ```
 
