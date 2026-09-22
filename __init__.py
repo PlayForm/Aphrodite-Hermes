@@ -6,11 +6,9 @@ Architecture: __init__.py → ctypes → libaphrodite_hermes.dylib → aphrodite
 
 import contextlib
 import ctypes
-import itertools
 import json
 import logging
 import os
-import shutil
 import subprocess
 import sys
 import threading
@@ -86,7 +84,7 @@ _REQUIRED_VOID_P: tuple[str, ...] = (
 # surface changes (graceful skip when the codegen tools are missing - the
 # committed artifact stays in effect, and its import is best-effort here).
 # The generated module never loads a library itself: the plugin owns the
-# CDLL handle (hot-reload machinery) and replays the declarations onto it
+# CDLL handle and replays the declarations onto it
 # via _GENERATED_BINDINGS.bind_to(dylib). Any failure - absent file (fresh
 # checkout before the artifact lands, standalone `aphrodite setup` install
 # whose embedded template ships without it), corrupt artifact, or a bind_to
@@ -150,7 +148,7 @@ _state = _process_state()
 
 
 def _data_dir() -> Path:
-    """Plugin data directory (hotreload cache, proxy-stderr.log).
+    """Plugin data directory (proxy-stderr.log, ccr state).
 
     Defaults to ``~/.hermes/aphrodite``; ``APHRODITE_HOME`` overrides it.
     Only the Python side honours the override - the Rust proxy/dylib keep
@@ -164,161 +162,6 @@ def _data_dir() -> Path:
     except Exception as e:
         _log.warning("_data_dir: %s; falling back to <hermes-home>/aphrodite", e)
         return _hermes_home() / "aphrodite"
-
-
-def _hotreload_dir() -> str:
-    """Location for hot-reload dylib copies.
-
-    Lives under the Aphrodite namespace in the OS user directory
-    (~/.hermes/aphrodite/hotreload) rather than inside the plugin source
-    tree. This keeps the copies out of the plugin checkout so `hermes
-    plugins doctor` never stages/copies them into tmpfs (which previously
-    caused ENOSPC failures) and so they don't accumulate in version
-    control or released artifacts.
-    """
-    d = _data_dir() / "hotreload"
-    d.mkdir(parents=True, exist_ok=True)
-    return str(d)
-
-
-def _pid_alive(pid: int) -> bool:
-    """Best-effort "is this PID still running?" check, cross-platform.
-
-    Windows MUST NOT use ``os.kill(pid, 0)``: CPython's ``os.kill`` on Windows
-    is ``TerminateProcess`` for any signal other than ``CTRL_C_EVENT`` /
-    ``CTRL_BREAK_EVENT``, and ``0`` is neither - so "probe" *kills* the target.
-    This reaper runs in every process that loads the plugin (CLI runs, kanban
-    workers), and the tombstones it walks are named after other live Hermes
-    processes; the gateway was being terminated on every worker spawn.
-    """
-    if pid <= 0:
-        return False
-    # Linux: /proc/<pid> exists iff the process is alive.
-    if os.path.isdir(f"/proc/{pid}"):
-        return True
-    if sys.platform == "win32":
-        try:
-            import ctypes.wintypes as wt
-
-            SYNCHRONIZE = 0x00100000  # noqa: N806 - Win32 API constant
-            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000  # noqa: N806 - Win32 API constant
-            STILL_ACTIVE = 259  # noqa: N806 - Win32 API constant
-            ERROR_ACCESS_DENIED = 5  # noqa: N806 - Win32 API constant
-            k32 = ctypes.windll.kernel32
-            k32.OpenProcess.argtypes = [wt.DWORD, wt.BOOL, wt.DWORD]
-            k32.OpenProcess.restype = wt.HANDLE
-            k32.GetExitCodeProcess.argtypes = [wt.HANDLE, ctypes.POINTER(wt.DWORD)]
-            k32.GetExitCodeProcess.restype = wt.BOOL
-            k32.CloseHandle.argtypes = [wt.HANDLE]
-            k32.CloseHandle.restype = wt.BOOL
-            h = k32.OpenProcess(SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
-            if not h:
-                # NULL handle: process not found (or access denied).
-                # ERROR_ACCESS_DENIED: exists but isn't ours - treat as alive
-                # (don't reap it).
-                return k32.GetLastError() == ERROR_ACCESS_DENIED
-            try:
-                code = wt.DWORD()
-                if k32.GetExitCodeProcess(h, ctypes.byref(code)):
-                    return code.value == STILL_ACTIVE
-                return True
-            finally:
-                k32.CloseHandle(h)
-        except Exception:
-            # Defensive: never reap what we cannot probe. NEVER fall back to
-            # os.kill on Windows (it is TerminateProcess and kills the target).
-            _log.warning("_pid_alive: win32 probe failed for pid %s; treating as alive", pid)
-            return True
-    # macOS/BSD: signal 0 probes existence without side effects.
-    try:
-        os.kill(pid, 0)
-        return True
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        # PID exists but isn't ours - treat as alive (don't reap it).
-        return True
-    except OSError:
-        return False
-
-
-def _reap_stale_hotreloads() -> None:
-    """Delete hot-reload copies left behind by processes that are no longer
-    running, and trim generations for live PIDs to the most recent few.
-
-    A copy filename is `<base>.<pid>.<gen>` (e.g.
-    `libaphrodite_hermes.dylib.4242.3`). Copies whose PID is dead are
-    unconditionally removed; for each live PID we keep only the newest
-    generation so a long-lived process can't grow unbounded either.
-    """
-    try:
-        d = _hotreload_dir()
-    except Exception:
-        return
-    by_pid: dict[int, list[tuple[int, str]]] = {}
-    prefix = os.path.basename(_DYLIB_PATH)
-    try:
-        entries = os.listdir(d)
-    except OSError:
-        return
-    for name in entries:
-        if not name.startswith(prefix + "."):
-            continue
-        # <prefix>.<pid>.<gen>
-        rest = name[len(prefix) + 1 :]
-        parts = rest.split(".")
-        if len(parts) != 2:
-            continue
-        try:
-            pid = int(parts[0])
-            gen = int(parts[1])
-        except ValueError:
-            continue
-        by_pid.setdefault(pid, []).append((gen, os.path.join(d, name)))
-    for pid, gens in by_pid.items():
-        if not _pid_alive(pid):
-            # Process is gone - every generation it left is garbage.
-            for _, path in gens:
-                with contextlib.suppress(OSError):
-                    os.remove(path)
-        else:
-            # Still alive: keep only the newest generation for that PID.
-            gens.sort(reverse=True)
-            for _, path in gens[1:]:
-                with contextlib.suppress(OSError):
-                    os.remove(path)
-
-
-def _load_fresh_copy(src_path: str) -> str:
-    """Copy `src_path` to a uniquely-named file so a subsequent
-    `ctypes.CDLL()` genuinely loads the new bytes instead of a cached image.
-
-    dlopen (both macOS dyld and Linux glibc) memoizes loaded images by
-    canonical path and hands back the SAME cached handle on a repeat dlopen
-    of the same path - even when the file's mtime/content on disk changed,
-    and even though nothing here ever calls dlclose. This silently defeated
-    the mtime check below for every reload after the first: the check fired
-    and logged a "hot-reloading" warning, `ctypes.CDLL(path)` ran again, but
-    the OS just returned the original in-memory image untouched. Verified
-    empirically: a rebuilt dylib with a changed embedded constant, re-opened
-    via `ctypes.CDLL()` on the same live process, kept returning the OLD
-    constant and the identical `_handle` value. Loading each generation from
-    a fresh path sidesteps the path-keyed cache entirely.
-
-    Copies are written to the relocated hotreload cache
-    (~/.hermes/aphrodite/hotreload), NOT inside the plugin tree, and are
-    named `<base>.<pid>.<gen>` so stale copies from terminated processes can
-    be reaped by `_reap_stale_hotreloads`.
-    """
-    hotreload_dir = _hotreload_dir()
-    # Reap first so we don't pile generations on top of dead processes'
-    # leftovers, and so a fresh start can't grow unbounded.
-    _reap_stale_hotreloads()
-    dst = os.path.join(
-        hotreload_dir, f"{os.path.basename(src_path)}.{os.getpid()}.{next(_state.dylib_gen)}"
-    )
-    shutil.copy2(src_path, dst)
-    return dst
 
 
 def _dylib_candidates(plugin_dir: Path) -> list[str]:
@@ -384,8 +227,8 @@ def _probe_dylib(path: str) -> bool:
     instead of a gateway SIGSEGV.
 
     Runs ONCE per unique dylib source path per process (see
-    _state.probed_paths) - deliberately NOT per hot-reload mtime check, which
-    would spawn a subprocess on every reload.
+    _state.probed_paths) - the probe is a one-time gate, never repeated on
+    every load.
     """
     probe_script = (
         "import ctypes, sys\n"
@@ -432,8 +275,8 @@ def _configure_ffi(dylib: ctypes.CDLL, path: str) -> None:
 
     The generated module (cbindgen → ctypesgen → _bindings.py) is the
     authoritative declaration source; bind_to() replays its restype/argtypes
-    onto THIS dylib handle (the hot-reload machinery's fresh unique-path
-    copy - the generated module never hardcodes a library path). If the
+    onto THIS dylib handle (the generated module never hardcodes a library
+    path). If the
     generated bindings are absent (fresh checkout / standalone `aphrodite
     setup` install) or cannot be applied (stale artifact, mismatched dylib),
     fall back to the manual restype setup. _ensure_ffi_argtypes then
@@ -492,13 +335,20 @@ def _ensure_ffi_argtypes(dylib: ctypes.CDLL) -> None:
 
 
 def _load_dylib() -> ctypes.CDLL:
-    """Load libaphrodite_hermes.dylib with ctypes. Hot-reloads on mtime change.
+    """Load libaphrodite_hermes.dylib with ctypes.
 
     State lives in the process-global holder (see `_process_state`), so a
     second exec of this shim in the same process (one per Hermes home)
-    takes the mtime early-return below and reuses the mapped handle.
+    finds the already-mapped CDLL handle and reuses it (dlopen memoizes by
+    canonical path, so repeated loads of the same path converge on one
+    image). No hot-reload: the dylib is resolved once per process from the
+    pinned binary set (catalog review, PR 118488 - the load must be
+    deterministic from the installed tree, never racing a rebuild).
     """
     with _state.lock:
+        if _state.dylib is not None:
+            return _state.dylib
+
         # Find current dylib path: env override first, then the canonical
         # runtime home, then legacy plugin-dir copies.
         path = _DYLIB_PATH
@@ -532,27 +382,6 @@ def _load_dylib() -> ctypes.CDLL:
             )
         assert os.path.exists(path), f"Dylib not found. Tried: {candidates}"
 
-        # Hot-reload: check mtime, reload if changed
-        current_mtime = os.path.getmtime(path)
-        if _state.dylib is not None and current_mtime == _state.dylib_mtime:
-            return _state.dylib
-
-        if _state.dylib is not None:
-            # Reloading mid-session discards ALL prior compressions: the
-            # Rust side keeps its session state in a per-image OnceLock, so
-            # every existing <<<CCR:...>>> marker already in the transcript
-            # becomes an unresolvable dead reference the moment the new
-            # image loads (F4) - this is not a cosmetic reload, it silently
-            # wipes session state.
-            _log.warning(
-                "dylib mtime changed (%.2f -> %.2f) - hot-reloading %s; "
-                "this resets ALL session CCR state - existing markers in "
-                "the transcript will no longer resolve via aphrodite_retrieve",
-                _state.dylib_mtime,
-                current_mtime,
-                path,
-            )
-
         # Smoke-test the dylib in a SUBPROCESS before loading it in-process:
         # a ctypes SIGSEGV cannot be caught by try/except and would kill the
         # whole gateway, so a faulting image is rejected here - once per
@@ -562,26 +391,7 @@ def _load_dylib() -> ctypes.CDLL:
                 raise RuntimeError(f"dylib smoke-test failed for {path} - plugin disabled")
             _state.probed_paths.add(path)
 
-        # Load from a fresh unique-path copy, not `path` directly - see
-        # `_load_fresh_copy`'s docstring for why a repeat dlopen of the same
-        # path silently returns stale, cached code on every platform.
-        load_path = _load_fresh_copy(path)
-        dylib = ctypes.CDLL(load_path)
-
-        # The previous generation's copy is no longer needed - its mapped
-        # pages stay valid for any in-flight call even after the directory
-        # entry is removed (standard POSIX unlink-while-mapped semantics),
-        # so deleting it here is safe and keeps this process's own copies
-        # from growing unboundedly across a long dev session.
-        if _state.dylib_copy_path is not None:
-            with contextlib.suppress(OSError):
-                os.remove(_state.dylib_copy_path)
-
-        # Register a one-shot shutdown sweep for THIS process's own copy.
-        # Copies from terminated processes are reaped at startup via
-        # `_reap_stale_hotreloads`; this guarantees our own final
-        # generation is removed on a clean exit too. Idempotent.
-        _register_atexit_cleanup()
+        dylib = ctypes.CDLL(path)
 
         try:
             # c_void_p avoids Python 3.14 c_char_p malloc mismatch → SIGABRT;
@@ -613,8 +423,6 @@ def _load_dylib() -> ctypes.CDLL:
             ) from e
 
         _state.dylib = dylib  # pyright: ignore[reportAttributeAccessIssue]
-        _state.dylib_mtime = current_mtime  # pyright: ignore[reportAttributeAccessIssue]
-        _state.dylib_copy_path = load_path  # pyright: ignore[reportAttributeAccessIssue]
         return dylib
 
 
@@ -636,7 +444,7 @@ def _read_str(ptr: int | None) -> str | None:
 def _call_json(dylib: ctypes.CDLL, fn_name: str, *args: bytes) -> Any:
     """Call C function by name, decode JSON, free through the SAME dylib
     object that produced the pointer (F4: allocating and freeing through
-    different hot-reloaded images is only safe by accident today - benign
+    different dylib handles is only safe by accident today - benign
     while both use the system allocator, undefined behavior the day a
     custom global allocator is added).
 
@@ -691,7 +499,7 @@ def _check_version(dylib: ctypes.CDLL) -> None:
     """Warn (never raise) if the loaded dylib's version disagrees with
     BINARY_VERSION - the plugin's own pin of what it was built/shipped
     against (F6). The dylib is fetched separately (download.sh, keyed off
-    BINARY_VERSION) and hot-reloaded by mtime; a stale or newer dylib with a
+    BINARY_VERSION); a stale or newer dylib with a
     changed JSON contract should fail loudly at registration, not misbehave
     silently at runtime."""
     try:
@@ -1064,35 +872,6 @@ def _start_proxy():
 # ── Plugin registration ──
 
 
-def _register_atexit_cleanup() -> None:
-    """Register a one-shot atexit handler that removes this process's own
-    hot-reload copy on interpreter shutdown, and reaps any copies left by
-    processes that have since died. Idempotent across shim copies (the
-    flag lives in the process-global holder)."""
-    if _state.atexit_registered:
-        return
-    _state.atexit_registered = True  # pyright: ignore[reportAttributeAccessIssue]
-    import atexit
-
-    def _cleanup() -> None:
-        # Remove our own final-generation copy.
-        if _state.dylib_copy_path is not None:
-            with contextlib.suppress(OSError):
-                os.remove(_state.dylib_copy_path)
-        # And sweep up anything abandoned by dead processes.
-        _reap_stale_hotreloads()
-
-    atexit.register(_cleanup)
-
-
-# Startup sweep: reclaim hot-reload copies abandoned by processes that died
-# before they could clean up (e.g. crashed/terminated Hermes sessions). This
-# replaces the old in-tree `.hotreload/` (which grew to ~19 GB across many
-# terminated processes) with a bounded, reaped cache.
-with contextlib.suppress(Exception):
-    _reap_stale_hotreloads()
-
-
 def register(ctx: Any) -> None:
     """Register hooks, tools, and (optionally) a context engine with Hermes.
 
@@ -1158,11 +937,10 @@ def register(ctx: Any) -> None:
             """Dispatch hook to Rust dylib and return parsed result.
 
             Resolves the dylib fresh on every call instead of closing over
-            the `dylib` captured above (F4): previously hooks stayed pinned
-            to whichever image was loaded at registration time forever,
-            while tool handlers already re-resolved per call - so after a
-            hot-reload, a marker emitted by a hook (old image) became
-            unresolvable by aphrodite_retrieve (new image, fresh state).
+            the `dylib` captured above (F4): hooks and tool handlers both
+            re-resolve per call so every dispatch goes through the current
+            image (the process-global holder returns the single mapped
+            handle - no per-call copy or reload).
             """
             # Hermes passes hook args as kwargs (result, output, tool_name, ...).
             # default=str keeps any non-JSON-serializable extras (e.g. message
