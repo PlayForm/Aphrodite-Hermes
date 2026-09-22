@@ -31,9 +31,10 @@ hermes
 ```
 
 The `ln -s` line links the plugin into `~/.hermes/plugins/` so Hermes can
-discover it. Create it at install time: the plugin's startup layout self-heal
-(`layout_check.py`) can only recreate the link once Hermes has already loaded
-the plugin from somewhere.
+discover it. Create it at install time - the plugin never creates, converts,
+or recreates this link: `~/.hermes/plugins/aphrodite` is Hermes-owned
+(`layout_check.py` is report-only; the install path may be a symlink or a
+real directory).
 
 Binaries are **never shipped inside the repository**. The plugin downloads
 them from the GitHub release (tag pinned in `BINARY_VERSION`, checksums
