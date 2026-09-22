@@ -4,10 +4,9 @@ Hermes builds one PluginManager per Hermes home (root + every profile) and
 exec_module()s this shim once per home under a distinct module name, all in
 one process. Two things went wrong on Windows:
 
-  * dylib state lived in module globals, so the second exec restarted the
-    generation counter and tried to overwrite `<name>.<pid>.0` - the copy the
-    first load had already mapped - which fails with PermissionError [Errno 13]
-    (a mapped DLL is locked on Windows);
+  * dylib state lived in module globals, so the second exec restarted from
+    scratch and the second `_load_dylib` could not see the already-mapped
+    handle;
   * `_start_proxy` Popen'd the binary unconditionally, so every extra process
     spawned a proxy that died on `failed to bind listener` (os error 10048),
     growing proxy-stderr.log on every start.
@@ -18,63 +17,27 @@ and exercise the pre-launch health probe with the health opener/Popen stubbed
 (against the current tree the probe is `_health_opener.open()` with a JSON
 `status == "healthy"` body check, not a bare status-code read).
 
-Test hygiene: the dylib tests exercise `_load_dylib`, which registers a REAL
-atexit handler (`_register_atexit_cleanup`) that reaps stale hotreload copies
-at interpreter exit. By exit time the env monkeypatches have been restored, so
-that handler would sweep the DEFAULT ~/.hermes/aphrodite hotreload dir - on a
-live machine that could trim a real proxy's generations. `_redirect_exit_reap`
-registers a guard handler AFTER the plugin's (atexit is LIFO, so ours fires
-first) that points APHRODITE_HOME at a scratch dir, so the exit-time reap
-sweeps only scratch and never touches the real tree.
+No hot-reload (catalog review, PR 118488): the dylib is loaded once per
+process from the resolved path, so the multi-home contract is simply that the
+second exec returns the SAME mapped handle (via the process-global holder),
+and that a changed mtime does NOT trigger a reload.
 """
 
 from __future__ import annotations
 
-import atexit
 import ctypes
 import importlib.util
 import logging
 import os
-import stat
 import subprocess
 import sys
 import tempfile
-from contextlib import suppress
 from pathlib import Path
 
 import pytest  # pyright: ignore[reportMissingImports]
 
 _PLUGIN = Path(__file__).resolve().parent.parent / "__init__.py"
 _STATE_MODULE_NAME = "aphrodite_hermes._process_state"
-
-# ── Test hygiene: keep the plugin's real atexit handler off the live tree ──
-# The exit-time reap resolves its data dir dynamically (it reads the
-# APHRODITE_HOME env var via _data_dir at exit time), so a guard handler that
-# runs BEFORE the plugin's cleanup can redirect it to scratch. atexit is LIFO:
-# the guard must be registered after the plugin's handler, which we do from
-# fixture teardown (always runs after the test body that called _load_dylib).
-_SCRATCH_HOME = Path(tempfile.mkdtemp(prefix="aphrodite-test-atexit-"))
-_guard_registered = False
-
-
-def _redirect_exit_reap() -> None:
-    """Point the plugin's exit-time hotreload sweep at a scratch dir.
-
-    Idempotent; call from fixture teardown so the guard is registered after
-    any real atexit handler the plugin installed mid-test.
-    """
-    global _guard_registered
-    if _guard_registered:
-        return
-    _guard_registered = True
-
-    def _guard() -> None:
-        # The plugin's _cleanup -> _reap_stale_hotreloads -> _data_dir reads
-        # this env var at exit time, so pointing it at scratch makes the sweep
-        # a no-op on the real ~/.hermes/aphrodite.
-        os.environ["APHRODITE_HOME"] = str(_SCRATCH_HOME)
-
-    atexit.register(_guard)
 
 
 class _FakeFn:
