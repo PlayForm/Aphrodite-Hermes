@@ -110,14 +110,20 @@ def isolated_home(tmp_path, monkeypatch):
     # stays offline and hermetic whichever _load_dylib variant lands.
     monkeypatch.setenv("APHRODITE_NO_AUTO_DOWNLOAD", "1")
     monkeypatch.setattr(ctypes, "CDLL", _FakeCDLL)
-    # _probe_dylib smoke-tests a REAL dylib in a subprocess - the fixture's
-    # fake MZ file cannot dlopen, so stub the probe (its behavior is pinned
-    # elsewhere; here we exercise the load/handle-reuse contract).
-    monkeypatch.setattr(first_module := _exec_shim("_aphrodite_shim_holder"), "_probe_dylib", lambda path: True) if False else None
+    _FakeCDLL.instances.clear()
+    fake_dylib = tmp_path / "fake_aphrodite_hermes.dll"
+    fake_dylib.write_bytes(b"MZ" + b"\x00" * 64)
+    yield tmp_path, fake_dylib
+    for name in [n for n in sys.modules if n.startswith("_aphrodite_shim_")]:
+        del sys.modules[name]
 
 
 def _load_twice(tmp_path: Path, fake_dylib: Path, monkeypatch):
     first = _exec_shim("_aphrodite_shim_home_a")
+    # _probe_dylib smoke-tests a REAL dylib in a subprocess - the fixture's
+    # fake MZ file cannot dlopen, so stub the probe (its behavior is pinned
+    # elsewhere; here we exercise the load/handle-reuse contract).
+    monkeypatch.setattr(first, "_probe_dylib", lambda path: True)
     monkeypatch.setattr(first, "_DYLIB_PATH", str(fake_dylib))
     h1 = first._load_dylib()
 
@@ -211,8 +217,6 @@ def proxy_shim(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "_BINARY_PATH", str(fake_binary))
     yield mod, tmp_path
     sys.modules.pop("_aphrodite_shim_proxy", None)
-    # Neutralize the plugin's exit-time reap (see module docstring).
-    _redirect_exit_reap()
 
 
 def test_start_proxy_skips_launch_when_both_proxies_healthy(proxy_shim, monkeypatch, caplog):
