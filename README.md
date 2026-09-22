@@ -35,10 +35,15 @@ discover it. Create it at install time: the plugin's startup layout self-heal
 (`layout_check.py`) can only recreate the link once Hermes has already loaded
 the plugin from somewhere.
 
-On first launch, the plugin **automatically downloads** the `aphrodite` binary
-from [releases](https://github.com/PlayForm/Aphrodite/releases) into the
-canonical runtime home `~/.hermes/aphrodite/binaries/`. No Rust toolchain
-required.
+Binaries are **shipped inside the repository**: the publish action pulls the
+immutable release assets into the plugin tree's `binaries/` (gitignored,
+never staged in source), so a pinned tree is self-contained and no download
+is needed. For manual installs, fetch them once with an **explicit setup
+step** - `bash ./download.sh` (or `pwsh ./download.ps1` on Windows) - which
+verifies SHA-256 against the release's checksums and refuses on mismatch.
+`register()` **never downloads**; if the binaries are missing it logs the
+setup command and the plugin stays disabled until they are present. No Rust
+toolchain required.
 
 > [!IMPORTANT]
 >
@@ -82,8 +87,8 @@ After installing and launching Hermes once:
 │   └── aphrodite → /path/to/Aphrodite-Hermes    ← manual symlink to this repo
 ├── aphrodite/
 │   ├── binaries/
-│   │   ├── aphrodite                            ← auto-downloaded proxy binary (~35 MB)
-│   │   └── libaphrodite_hermes.dylib            ← auto-downloaded dylib
+│   │   ├── aphrodite                            ← proxy binary (shipped in-repo or `download.sh` ~35 MB)
+│   │   └── libaphrodite_hermes.dylib            ← plugin dylib (shipped in-repo or `download.sh`)
 │   ├── ccr.db                                    ← SQLite CCR store (on first run)
 │   └── proxy-stderr.log                          ← proxy logs (on failure)
 ```
@@ -149,7 +154,7 @@ load the dylib via ctypes and register its surface with Hermes.
  Hermes Agent (hooks + tool dispatch)
     │
     ▼
- plugins/aphrodite/__init__.py        ← 1257-line Python loader
+ plugins/aphrodite/__init__.py        ← 1100-line Python loader
     │  ctypes FFI, registers hooks/tools/engine - no logic
     ▼
  libaphrodite_hermes.dylib            ← Hermes bridge (JSON contract)
@@ -313,16 +318,18 @@ ports before launching (see `_start_proxy`).
 
 ```text
 Aphrodite-Hermes/
-├── __init__.py          ← 1257-line Python loader (ctypes FFI)
+├── __init__.py          ← 1100-line Python loader (ctypes FFI)
 ├── plugin.yaml          ← 13 tools, 6 hooks, context engine
-├── download.sh          ← Binary auto-downloader (macOS/Linux/Git Bash/WSL)
-├── download.ps1         ← Binary auto-downloader (native Windows PowerShell)
+├── download.sh          ← Explicit binary fetch (macOS/Linux/Git Bash/WSL; optional - binaries ship in-repo)
+├── download.ps1         ← Explicit binary fetch (native Windows PowerShell; optional)
 ├── BINARY_VERSION       ← Pinned binary release tag
 ├── tests/               ← Plugin test suite
 ├── README.md            ← This file
 └── .gitignore
 ```
 
-Runtime binaries are **not** stored here - `download.sh` / `download.ps1`
-install them into `~/.hermes/aphrodite/binaries/` (the canonical runtime
-home), never into this directory.
+Runtime binaries are shipped in the plugin tree's `binaries/` (gitignored,
+pulled from the immutable release by the publish action) or - for manual
+installs - fetched once by the explicit `download.sh` / `download.ps1` setup
+step into `~/.hermes/aphrodite/binaries/` (the canonical runtime home).
+`register()` never downloads.

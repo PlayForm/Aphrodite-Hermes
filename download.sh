@@ -8,13 +8,14 @@
 set -euo pipefail
 
 # BINARY_DIR defaults to the canonical runtime home
-# (~/.hermes/aphrodite/binaries) - the same directory the Hermes plugin's
-# __init__.py resolves. The env override keeps working exactly as before
-# (scripts/CI may set it); a bare "binaries" relative default used to
-# depend on $PWD (wherever this script happened to be invoked FROM), not
-# the script's own directory, silently writing to the wrong place.
+# ($HERMES_HOME/aphrodite/binaries, falling back to ~/.hermes/aphrodite/
+# binaries) - the same directory the Hermes plugin's __init__.py resolves.
+# The env override keeps working exactly as before (scripts/CI may set it);
+# a bare "binaries" relative default used to depend on $PWD (wherever this
+# script happened to be invoked FROM), not the script's own directory,
+# silently writing to the wrong place.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BINARY_DIR="${BINARY_DIR:-$HOME/.hermes/aphrodite/binaries}"
+BINARY_DIR="${BINARY_DIR:-${HERMES_HOME:-$HOME/.hermes}/aphrodite/binaries}"
 REPO="${REPO:-PlayForm/Aphrodite}"
 BIN_VERSION="${1:-}"
 TARGET="${2:-}"
