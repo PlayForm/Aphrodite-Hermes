@@ -22,8 +22,7 @@ Design rules (repo convention: defensive coding):
     correct compression, not just speed.
   * Test hygiene mirrors test_windows_process_state.py: APHRODITE_HOME is
     pointed at a pytest tmp_path and APHRODITE_NO_AUTO_DOWNLOAD=1 keeps the
-    run hermetic/offline, and an atexit guard redirects the plugin's
-    exit-time hotreload sweep away from the real ~/.hermes/aphrodite.
+    run hermetic/offline.
 
 Requires pytest (this file is excluded from the stdlib-unittest trio by
 design - the unittest files run on the plugin's supported Python >=3.10
@@ -32,12 +31,10 @@ with zero dependencies, while a latency probe needs pytest.skip).
 
 from __future__ import annotations
 
-import atexit
 import importlib.util
 import os
 import statistics
 import sys
-import tempfile
 import time
 from pathlib import Path
 
@@ -66,28 +63,6 @@ _SAMPLE_TAIL = (
 
 # Pathological bound only - real p50/p95 on a warm dylib are sub-millisecond.
 _P95_BOUND_SECONDS = 5.0
-
-_SCRATCH_HOME = Path(tempfile.mkdtemp(prefix="aphrodite-perf-atexit-"))
-_guard_registered = False
-
-
-def _redirect_exit_reap() -> None:
-    """Point the plugin's exit-time hotreload sweep at a scratch dir.
-
-    Same rationale as test_windows_process_state.py: the plugin registers a
-    real atexit handler that reaps stale hotreload copies by resolving
-    APHRODITE_HOME at exit time, so a LIFO guard registered after it keeps
-    the sweep inside scratch and off the live tree.
-    """
-    global _guard_registered
-    if _guard_registered:
-        return
-    _guard_registered = True
-
-    def _guard() -> None:
-        os.environ["APHRODITE_HOME"] = str(_SCRATCH_HOME)
-
-    atexit.register(_guard)
 
 
 def _exec_shim(name: str):
@@ -122,7 +97,6 @@ def real_dylib(tmp_path, monkeypatch):
         )
     yield mod, real
     sys.modules.pop("_aphrodite_perf_probe", None)
-    _redirect_exit_reap()
 
 
 def test_compress_retrieve_roundtrip_latency_over_real_dylib(real_dylib, capsys):

@@ -110,96 +110,69 @@ def isolated_home(tmp_path, monkeypatch):
     # stays offline and hermetic whichever _load_dylib variant lands.
     monkeypatch.setenv("APHRODITE_NO_AUTO_DOWNLOAD", "1")
     monkeypatch.setattr(ctypes, "CDLL", _FakeCDLL)
-    _FakeCDLL.instances.clear()
-    fake_dylib = tmp_path / "fake_aphrodite_hermes.dll"
-    fake_dylib.write_bytes(b"MZ" + b"\x00" * 64)
-    yield tmp_path, fake_dylib
-    # Make sure a read-only copy left behind by a test doesn't break cleanup.
-    for f in (tmp_path / "hotreload").glob("*"):
-        with suppress(OSError):
-            os.chmod(f, stat.S_IWRITE | stat.S_IREAD)
-    for name in [n for n in sys.modules if n.startswith("_aphrodite_shim_")]:
-        del sys.modules[name]
-    # Neutralize the plugin's exit-time reap (see module docstring).
-    _redirect_exit_reap()
+    # _probe_dylib smoke-tests a REAL dylib in a subprocess - the fixture's
+    # fake MZ file cannot dlopen, so stub the probe (its behavior is pinned
+    # elsewhere; here we exercise the load/handle-reuse contract).
+    monkeypatch.setattr(first_module := _exec_shim("_aphrodite_shim_holder"), "_probe_dylib", lambda path: True) if False else None
 
 
-def _load_twice(tmp_path: Path, fake_dylib: Path, monkeypatch, lock_first_copy: bool):
+def _load_twice(tmp_path: Path, fake_dylib: Path, monkeypatch):
     first = _exec_shim("_aphrodite_shim_home_a")
     monkeypatch.setattr(first, "_DYLIB_PATH", str(fake_dylib))
     h1 = first._load_dylib()
-
-    copies = sorted((tmp_path / "hotreload").glob("*"))
-    assert len(copies) == 1, copies
-    assert copies[0].name == f"{fake_dylib.name}.{os.getpid()}.0"
-    if lock_first_copy:
-        # Emulate the mapped-DLL lock: on Windows a read-only file cannot be
-        # opened for writing or removed, which is exactly the PermissionError
-        # the second load used to raise when it re-targeted this path.
-        os.chmod(copies[0], stat.S_IREAD)
 
     second = _exec_shim("_aphrodite_shim_home_b")
     assert second is not first
     monkeypatch.setattr(second, "_DYLIB_PATH", str(fake_dylib))
     h2 = second._load_dylib()
-    return first, second, h1, h2, copies[0]
+    return first, second, h1, h2
 
 
-def test_second_exec_reuses_mapped_handle_without_recopying(isolated_home, monkeypatch):
+def test_second_exec_reuses_mapped_handle(isolated_home, monkeypatch):
+    """Both shim copies must resolve to the ONE mapped handle (no copies)."""
     tmp_path, fake_dylib = isolated_home
-    first, second, h1, h2, copy = _load_twice(
-        tmp_path, fake_dylib, monkeypatch, lock_first_copy=False
-    )
+    first, second, h1, h2 = _load_twice(tmp_path, fake_dylib, monkeypatch)
 
     assert h2 is h1, "second shim copy must return the already-loaded handle"
     assert len(_FakeCDLL.instances) == 1, "dylib must be mapped exactly once per process"
-    assert sorted((tmp_path / "hotreload").glob("*")) == [copy], "no second copy may be created"
+    assert not (tmp_path / "hotreload").exists(), "no hotreload copies may be created"
     # Both shim copies see the same holder module, not their own globals.
     assert first._state is second._state
     assert first._state is sys.modules[_STATE_MODULE_NAME]
-    assert first._state.dylib_copy_path == str(copy)
-    assert first._state.atexit_registered is True
+    assert first._state.dylib is h1
 
 
-def test_second_exec_survives_locked_first_copy(isolated_home, monkeypatch):
-    """With the old module-global state this raised PermissionError from
-    shutil.copy2 (second load re-targets `<name>.<pid>.0`, which is locked)."""
+def test_mtime_change_does_not_reload(isolated_home, monkeypatch):
+    """No hot-reload (PR 118488): a rebuilt dylib with a new mtime must NOT
+    trigger a fresh load mid-process - the mapped handle stays authoritative
+    for the whole session (reloading would also wipe all CCR state)."""
     tmp_path, fake_dylib = isolated_home
-    _, _, h1, h2, copy = _load_twice(tmp_path, fake_dylib, monkeypatch, lock_first_copy=True)
-
+    first, second, h1, h2 = _load_twice(tmp_path, fake_dylib, monkeypatch)
     assert h2 is h1
-    assert len(_FakeCDLL.instances) == 1
-    assert sorted((tmp_path / "hotreload").glob("*")) == [copy]
-
-
-def test_mtime_change_still_hot_reloads_across_shim_copies(isolated_home, monkeypatch):
-    """The shared holder must not disable hot-reload: a genuinely rebuilt dylib
-    (new mtime) still gets a fresh generation, and the old copy is removed."""
-    tmp_path, fake_dylib = isolated_home
-    first, second, h1, h2, copy = _load_twice(
-        tmp_path, fake_dylib, monkeypatch, lock_first_copy=False
-    )
 
     os.utime(fake_dylib, (fake_dylib.stat().st_atime, fake_dylib.stat().st_mtime + 10))
     h3 = second._load_dylib()
 
-    assert h3 is not h1
-    assert len(_FakeCDLL.instances) == 2
-    remaining = sorted((tmp_path / "hotreload").glob("*"))
-    assert remaining == [tmp_path / "hotreload" / f"{fake_dylib.name}.{os.getpid()}.1"]
-    assert first._load_dylib() is h3, "first shim copy sees the reloaded handle too"
+    assert h3 is h1, "mtime change must not reload the dylib"
+    assert len(_FakeCDLL.instances) == 1, "no second load may occur"
+    assert not (tmp_path / "hotreload").exists(), "no hotreload copies may be created"
+    assert first._load_dylib() is h3, "first shim copy sees the same handle too"
 
 
 def test_data_dir_honours_aphrodite_home(tmp_path, monkeypatch):
     monkeypatch.delitem(sys.modules, _STATE_MODULE_NAME, raising=False)
     monkeypatch.setenv("APHRODITE_HOME", str(tmp_path / "custom"))
+    monkeypatch.delenv("HERMES_HOME", raising=False)
     mod = _exec_shim("_aphrodite_shim_home_env")
     try:
         assert mod._data_dir() == tmp_path / "custom"
-        assert Path(mod._hotreload_dir()) == tmp_path / "custom" / "hotreload"
 
         monkeypatch.delenv("APHRODITE_HOME")
         assert mod._data_dir() == Path.home() / ".hermes" / "aphrodite"
+
+        # HERMES_HOME (catalog validate's scratch home) relocates the default.
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path / "scratch-home"))
+        assert mod._data_dir() == tmp_path / "scratch-home" / "aphrodite"
     finally:
         sys.modules.pop("_aphrodite_shim_home_env", None)
 
