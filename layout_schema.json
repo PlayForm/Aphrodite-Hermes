@@ -101,13 +101,13 @@
     "~/.hermes/plugins/aphrodite": {
       "kind": "symlink",
       "required": true,
-      "contents_forbidden": ["binaries", "aphrodite.toml", "ccr.db"],
+      "contents_forbidden": ["aphrodite.toml", "ccr.db"],
       "canonical_target": "<plugin real path>: repo plugins/aphrodite or standalone install",
       "overrides": [],
-      "note": "Pure loader/downloader. Must be a symlink to the plugin; never a real directory holding binaries, config, or ccr.db."
+      "note": "Pure loader/downloader. Must be a symlink to the plugin; never a real directory holding config or ccr.db."
     }
   },
-  "plugin_dir_forbidden": ["binaries", "aphrodite.toml", "ccr.db"],
+  "plugin_dir_forbidden": ["aphrodite.toml", "ccr.db"],
   "runtime_home_forbidden": [
     "__init__.py",
     "plugin.yaml",
