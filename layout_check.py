@@ -1,9 +1,12 @@
 """Self-healing layout checker for the Aphrodite Hermes plugin.
 
-Detects and repairs deviations from the canonical ~/.hermes layout described
-in layout_schema.json. The plugin calls ``check_and_heal()`` at startup so a
-broken install (wrong symlinks, misplaced config/binaries, stray plugin-source
-copies, dangling links, stale copies) is fixed automatically.
+Detects and reports deviations from the canonical ~/.hermes layout described
+in layout_schema.json. The plugin calls ``check_and_heal()`` at startup.
+Everything the plugin manages lives in the runtime home (~/.hermes/aphrodite):
+stray plugin-source copies there are quarantined, dangling links are
+reported. The <hermes-home>/plugins/aphrodite install path is Hermes-owned
+and REPORT-ONLY - the plugin never creates, converts, or modifies it (it may
+be a symlink or a real directory; Hermes decides).
 
 The module is standalone: it imports only the standard library, so tests can
 run it directly without Hermes or the rest of the plugin package.  It never
@@ -26,8 +29,10 @@ __all__ = ["check_and_heal"]
 logger = logging.getLogger("aphrodite")
 
 _SCHEMA_NAME = "layout_schema.json"
-# Runtime-state files (config, ccr.db) are forbidden in the plugin dir.
-_DEFAULT_FORBIDDEN = ("aphrodite.toml", "ccr.db")
+# The <hermes-home>/plugins/aphrodite path is Hermes-owned: the plugin never
+# scans it for forbidden contents (it may be a symlink OR a real directory
+# copy; Hermes decides). Everything the plugin manages lives in the runtime
+# home below.
 _DEFAULT_RUNTIME_FORBIDDEN = (
     "__init__.py",
     "plugin.yaml",
@@ -364,28 +369,6 @@ def check_and_heal(home_dir=None, dry_run=False, plugin_dir=None) -> dict:
             )
             if not _replace_symlink_with_copy(bpath, dry_run, _action, _warn):
                 _warn(f"could not replace stale symlink {bpath} with a real copy; left as-is")
-
-        # --- forbidden contents inside the plugin dir ------------------------ #
-        for name in schema.get("plugin_dir_forbidden") or _DEFAULT_FORBIDDEN:
-            forbidden = plugin_scan_dir / name
-            if not (forbidden.exists() or forbidden.is_symlink()):
-                _check(f"plugin_forbidden:{name}", "ok", f"no '{name}' inside plugin dir")
-                continue
-            _check(
-                f"plugin_forbidden:{name}",
-                "mismatch",
-                f"forbidden '{name}' present inside plugin dir: {forbidden}",
-            )
-            if checkout:
-                _warn(f"{forbidden} not moved: plugin dir is a git checkout")
-                continue
-            if forbidden.is_symlink():
-                _warn(f"{forbidden} is a symlink; not moved (ambiguous)")
-                continue
-            if name == "aphrodite.toml":
-                _move_out(forbidden, config_canonical, dry_run, _action, _warn)
-            else:
-                _move_out(forbidden, runtime_home / name, dry_run, _action, _warn)
 
         # --- stray plugin-source files inside the runtime home --------------- #
         for name in schema.get("runtime_home_forbidden") or _DEFAULT_RUNTIME_FORBIDDEN:
