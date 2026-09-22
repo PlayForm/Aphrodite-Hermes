@@ -107,7 +107,7 @@
       "note": "Pure loader/downloader. Must be a symlink to the plugin; never a real directory holding binaries, config, or ccr.db."
     }
   },
-  "plugin_dir_forbidden": ["aphrodite.toml", "ccr.db"],
+  "plugin_dir_forbidden": ["binaries", "aphrodite.toml", "ccr.db"],
   "runtime_home_forbidden": [
     "__init__.py",
     "plugin.yaml",

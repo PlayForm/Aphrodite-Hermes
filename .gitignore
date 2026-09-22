@@ -1,15 +1,3 @@
-# Aphrodite proxy binary + plugin dylib (SHIPPED in-repo: the publish action
-# pulls the immutable release assets into binaries/; gitignored so the
-# binaries are never staged in source - catalog shipping model, PR 118488)
-binaries/aphrodite
-binaries/aphrodite.exe
-binaries/libaphrodite_hermes.dylib
-binaries/libaphrodite.dylib
-binaries/libaphrodite_hermes.so
-binaries/aphrodite_hermes.dll
-binaries/aphrodite-hermes-setup
-binaries/.hotreload/
-
 # Python
 __pycache__/
 *.py[cod]

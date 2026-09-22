@@ -59,7 +59,14 @@ class DylibCandidatesTest(unittest.TestCase):
         # /opt/Aphrodite-Hermes has 2 parents; old code indexed [2]/[3] and crashed.
         _require_helper(self)
         shallow = _dylib_candidates(Path("/opt/Aphrodite-Hermes"))
+        # No binaries ever ship in the plugin tree (catalog review, PR 118488):
+        # the canonical runtime home is the primary candidate and the plugin
+        # dir's own binaries/ must NOT appear.
         self.assertIn(
+            str(_plugin._BINARIES_DIR / _plugin._DYLIB_NAME),
+            shallow,
+        )
+        self.assertNotIn(
             str(Path("/opt/Aphrodite-Hermes") / "binaries" / _plugin._DYLIB_NAME),
             shallow,
         )
