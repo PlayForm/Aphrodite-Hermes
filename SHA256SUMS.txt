@@ -1,0 +1,29 @@
+# In-tree SHA-256 checksums for the binaries shipped with this plugin
+# (catalog review, PR 118488): the pinned tree must be able to verify its
+# binaries WITHOUT trusting a mutable remote. The publish action pulls the
+# immutable release assets into binaries/ (gitignored); download.sh verifies
+# every asset against this file and REFUSES on mismatch. Regenerate when
+# BINARY_VERSION bumps (source: the release's SHA256SUMS-<target>.txt
+# assets, e.g.
+# https://github.com/PlayForm/Aphrodite/releases/download/Aphrodite%2Fv1.5.1/SHA256SUMS-aarch64-apple-darwin.txt).
+#
+# Targets without an entry here are not published for this BINARY_VERSION;
+# download.sh falls back to the release's own SHA256SUMS-<target>.txt asset
+# for those (and hard-fails if that is absent too).
+BINARY_VERSION: 1.5.1
+
+aarch64-apple-darwin:
+  7598e7218bed1ec03c42efb2fbb2ea6cdfdcd946d0899385bb5825e7837a7097  aphrodite-aarch64-apple-darwin
+  3c5e5dac40ae040fcb6248ee075f234585096c9890e63e47de05a9ea72f5ae7d  libaphrodite_hermes-aarch64-apple-darwin.dylib
+
+x86_64-apple-darwin:
+  1e340fa41b08bb0f56c38caebc1fb6501485133fcecd8289b503618411445401  aphrodite-x86_64-apple-darwin
+  e57580b46d89ae75faae14119396b122af2b38fe6c4204056ba9a17bb0702d71  libaphrodite_hermes-x86_64-apple-darwin.dylib
+
+x86_64-unknown-linux-gnu:
+  b0430791bbbfedee0c044dd90c3d8c6573f038fc79db5e1a18b03a3ea409882f  aphrodite-x86_64-unknown-linux-gnu
+  7899486d3fb417758c9c8f6916f6dcb0f7f07032abb3692f3dae4ca2fbf099fa  libaphrodite_hermes-x86_64-unknown-linux-gnu.so
+
+x86_64-pc-windows-msvc:
+  d3016d05826a97824cdf820d7d180b9078a38f3021f8356586071dcaffe9edb8  aphrodite-x86_64-pc-windows-msvc.exe
+  bbd9a75e10a98fa833c75d4c6401785772d86c7e0c4669f3935c8dbb3e660924  libaphrodite_hermes-x86_64-pc-windows-msvc.dll

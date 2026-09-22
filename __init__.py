@@ -167,19 +167,25 @@ def _data_dir() -> Path:
 def _dylib_candidates(plugin_dir: Path) -> list[str]:
     """Ordered dylib candidates, env override first, parent-depth guarded.
 
-    Canonical runtime home (~/.hermes/aphrodite/binaries) comes first; the
-    plugin-dir binaries/ paths are legacy fallbacks so a pre-relocation
-    install still loads. Shallow installs (e.g. /opt/Aphrodite-Hermes) have
-    fewer than 4 parents; the monorepo target/release fallbacks simply do
-    not exist there, so indexing is guarded instead of crashing (issue 5).
+    Shipping model (catalog review, PR 118488): the dylib ships INSIDE the
+    repository - the publish action pulls the immutable release assets into
+    the plugin tree's `binaries/` (gitignored, never staged in source), so
+    the pinned tree is self-contained and the loader prefers the shipped
+    in-repo binary. The canonical runtime home (<hermes-home>/aphrodite/
+    binaries) is where `aphrodite setup` / download.sh copy it; it stays a
+    fallback so a pre-shipping install still loads. Shallow installs (e.g.
+    /opt/Aphrodite-Hermes) have fewer than 4 parents; the monorepo
+    target/release fallbacks simply do not exist there, so indexing is
+    guarded instead of crashing (issue 5).
     """
     plugin_dir = Path(plugin_dir).resolve()
+    shipped = str(plugin_dir / "binaries" / _DYLIB_NAME)
     canonical = str(_BINARIES_DIR / _DYLIB_NAME)
     candidates = [
         _DYLIB_PATH,  # APHRODITE_HERMES_DYLIB_PATH override (or canonical default) - wins when it exists
-        canonical,  # canonical runtime home (dedup no-op when the env var is unset)
-        str(plugin_dir / "binaries" / _DYLIB_NAME),  # legacy fallback (old installs)
-        str(plugin_dir.parent / "binaries" / _DYLIB_NAME),
+        shipped,  # shipped in-repo binary (immutable release assets pulled by the publish action)
+        canonical,  # canonical runtime home (where setup/download.sh copy the shipped binary)
+        str(plugin_dir.parent / "binaries" / _DYLIB_NAME),  # legacy fallback (old installs)
     ]
     parents = plugin_dir.parents
     for depth in (2, 3):
@@ -189,21 +195,25 @@ def _dylib_candidates(plugin_dir: Path) -> list[str]:
 
 
 def _resolve_binary_path() -> str:
-    """Proxy binary path: env override first, then canonical runtime home,
-    then the legacy plugin-dir copy as a warning-flagged fallback.
+    """Proxy binary path: env override first, then shipped in-repo binary,
+    then the canonical runtime home, then legacy plugin-dir copies.
 
-    APHRODITE_BINARY_PATH wins when it exists. Otherwise prefer
-    ~/.hermes/aphrodite/binaries; a pre-relocation install may only have
-    the plugin-dir binaries/ copy, which we keep loading (with a warning)
-    so an old install still works. Returns the last candidate (missing)
-    when nothing exists - callers log the final miss.
+    APHRODITE_BINARY_PATH wins when it exists. Otherwise prefer the
+    shipped `binaries/` copy inside the plugin tree (the immutable release
+    assets the publish action pulls in - the pinned tree carries them), then
+    <hermes-home>/aphrodite/binaries, then any pre-shipping plugin-dir copy
+    (with a warning). Returns the last candidate (missing) when nothing
+    exists - callers log the final miss.
     """
     if os.path.exists(_BINARY_PATH):
         return _BINARY_PATH
+    shipped = str(_PLUGIN_DIR / "binaries" / _BINARY_NAME)
+    if os.path.exists(shipped):
+        return shipped
     canonical = str(_BINARIES_DIR / _BINARY_NAME)
     if os.path.exists(canonical):
         return canonical
-    legacy = str(_PLUGIN_DIR / "binaries" / _BINARY_NAME)
+    legacy = str(_PLUGIN_DIR.parent / "binaries" / _BINARY_NAME)
     if os.path.exists(legacy):
         _log.warning(
             "canonical binary %s not found - using legacy plugin-dir copy "
@@ -357,8 +367,9 @@ def _load_dylib() -> ctypes.CDLL:
             if os.path.exists(p):
                 path = p
                 break
-        # Auto-fetch the dylib on first use if it's missing (download.sh
-        # verifies SHA-256 and writes ~/.hermes/aphrodite/binaries/).
+        # Auto-fetch is OFF by default (catalog review, PR 118488): the
+        # binaries ship in the pinned tree's binaries/ (gitignored, pulled
+        # by the publish action); download.sh is an explicit setup step.
         # No-op when present.
         _ensure_binaries()
         if not os.path.exists(path):
@@ -609,52 +620,66 @@ def _check_version_published() -> None:
 
 
 def _ensure_binaries() -> None:
-    """Fetch the proxy binary + dylib via download.sh when either is missing.
+    """Ensure the proxy binary + dylib are present - NEVER downloads.
 
-    README.md has always promised binaries are fetched automatically; this
-    makes that promise real. Returns immediately when both files exist, so
-    repeated register() calls never re-download. APHRODITE_NO_AUTO_DOWNLOAD
-    (1/true, like _env_bool) opts out for offline/dev-loop setups.
+    Catalog review (PR 118488): a download is an explicit, documented setup
+    step (`aphrodite setup` / `bash download.sh`), never something
+    register() does. The binaries ship INSIDE the repository (the publish
+    action pulls the immutable release assets into the plugin tree's
+    `binaries/`, gitignored), so a pinned tree is self-contained. This
+    function therefore only verifies presence and, when a binary is
+    missing, logs the explicit setup command - it never fetches from the
+    network.
 
-    download.sh's BINARY_DIR defaults to ~/.hermes/aphrodite/binaries; we
-    also pass BINARY_DIR explicitly so an ambient BINARY_DIR in the caller's
-    environment can never redirect the fetch back into the plugin tree.
+    Legacy escape hatch: APHRODITE_AUTO_DOWNLOAD=1 (1/true, like
+    _env_bool) restores the old register-time fetch for dev-loop setups
+    that build from source and want download.sh as a convenience. Default
+    is OFF - matching the review requirement that register() must not
+    download.
     """
-    if _env_bool("APHRODITE_NO_AUTO_DOWNLOAD"):
+    if _env_bool("APHRODITE_AUTO_DOWNLOAD") and not (
+        os.path.exists(_BINARY_PATH) and os.path.exists(_DYLIB_PATH)
+    ):
+        # Explicitly opted-in legacy convenience: fetch missing binaries.
+        _check_version_published()
+        try:
+            env = os.environ.copy()
+            env["BINARY_DIR"] = str(_BINARIES_DIR)
+            result = subprocess.run(
+                ["bash", str(_PLUGIN_DIR / "download.sh")],
+                timeout=180,
+                capture_output=True,
+                text=True,
+                errors="replace",
+                env=env,
+            )
+        except Exception as e:
+            _log.warning(
+                "failed to run %s (%s) - run download.sh manually to fetch the aphrodite binaries",
+                _PLUGIN_DIR / "download.sh",
+                e,
+            )
+            return
+        if result.returncode != 0:
+            tail = "\n".join(((result.stdout or "") + (result.stderr or "")).splitlines()[-15:])
+            _log.warning(
+                "download.sh exited %d - run download.sh manually to fetch the "
+                "aphrodite binaries; output tail:\n%s",
+                result.returncode,
+                tail,
+            )
         return
     if os.path.exists(_BINARY_PATH) and os.path.exists(_DYLIB_PATH):
         return
-    # Harden item 4: fail the auto-fetch loudly BEFORE download.sh when the
-    # pinned BINARY_VERSION points at a release with no assets (every asset
-    # URL 404s - the crash-loop this prevents). Best-effort: network failure
-    # degrades to a warning, never a raise.
-    _check_version_published()
-    try:
-        env = os.environ.copy()
-        env["BINARY_DIR"] = str(_BINARIES_DIR)
-        result = subprocess.run(
-            ["bash", str(_PLUGIN_DIR / "download.sh")],
-            timeout=180,
-            capture_output=True,
-            text=True,
-            errors="replace",
-            env=env,
-        )
-    except Exception as e:
-        _log.warning(
-            "failed to run %s (%s) - run download.sh manually to fetch the aphrodite binaries",
-            _PLUGIN_DIR / "download.sh",
-            e,
-        )
-        return
-    if result.returncode != 0:
-        tail = "\n".join(((result.stdout or "") + (result.stderr or "")).splitlines()[-15:])
-        _log.warning(
-            "download.sh exited %d - run download.sh manually to fetch the "
-            "aphrodite binaries; output tail:\n%s",
-            result.returncode,
-            tail,
-        )
+    missing = [p for p in (_BINARY_PATH, _DYLIB_PATH) if not os.path.exists(p)]
+    _log.warning(
+        "aphrodite binaries missing (%s) - the plugin will not register. "
+        "Run `bash %s` or `aphrodite setup` once to fetch them "
+        "(explicit setup step; register() never downloads), or set "
+        "APHRODITE_AUTO_DOWNLOAD=1 for the legacy auto-fetch",
+        ", ".join(missing),
+        _PLUGIN_DIR / "download.sh",
+    )
 
 
 _health_opener: Any = None
@@ -893,9 +918,10 @@ def register(ctx: Any) -> None:
         # register, so we log and return.
         _log.error(
             "aphrodite-hermes dylib could not be loaded (%s) - plugin disabled; "
-            "run download.sh (or unset APHRODITE_NO_AUTO_DOWNLOAD) to fetch "
-            "the binaries, then restart Hermes",
+            "run `bash %s` or `aphrodite setup` to fetch the binaries "
+            "(explicit setup step), then restart Hermes",
             e,
+            _PLUGIN_DIR / "download.sh",
         )
         return
     _log.info("aphrodite-hermes dylib loaded: %s", _DYLIB_PATH)
@@ -1001,7 +1027,16 @@ def register(ctx: Any) -> None:
                 e,
             )
 
-    _start_proxy()
+    # Proxy launch is skipped under `hermes plugins validate`: the capability
+    # probe runs register() in a scratch child (RecordingContext,
+    # plugin_id == "hermes_validate_probe_plugin") and must have no side
+    # effects on the live machine - no port binding, no subprocesses
+    # (catalog review, PR 118488: the probe downloaded binaries, materialized
+    # directives and bound :9797/:9798 in the real environment).
+    if getattr(ctx, "plugin_id", "") == "hermes_validate_probe_plugin":
+        _log.info("validate probe context - skipping proxy launch")
+    else:
+        _start_proxy()
 
 
 def _register_context_engine(ctx: Any, dylib: ctypes.CDLL) -> None:

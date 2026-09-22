@@ -31,7 +31,6 @@ import logging
 import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest  # pyright: ignore[reportMissingImports]
@@ -124,6 +123,12 @@ def _load_twice(tmp_path: Path, fake_dylib: Path, monkeypatch):
     # fake MZ file cannot dlopen, so stub the probe (its behavior is pinned
     # elsewhere; here we exercise the load/handle-reuse contract).
     monkeypatch.setattr(first, "_probe_dylib", lambda path: True)
+    # The fake CDLL exposes no real exports, so the FFI completeness loop
+    # (restype must be c_void_p) cannot run against it - stub the FFI setup
+    # and the required-symbols list; _configure_ffi's contract is pinned by
+    # its own tests.
+    monkeypatch.setattr(first, "_configure_ffi", lambda dylib, path: None)
+    monkeypatch.setattr(first, "_REQUIRED_VOID_P", [])
     monkeypatch.setattr(first, "_DYLIB_PATH", str(fake_dylib))
     h1 = first._load_dylib()
 

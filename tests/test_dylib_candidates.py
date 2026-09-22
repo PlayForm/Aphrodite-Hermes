@@ -94,14 +94,24 @@ class DylibCandidatesTest(unittest.TestCase):
         # AssertionError "Dylib not found." not IndexError. Only meaningful once
         # _load_dylib routes through the helper; skip with a reason otherwise.
         _require_helper(self)
-        saved = (_plugin._PLUGIN_DIR, _plugin._DYLIB_PATH)
+        saved = (_plugin._PLUGIN_DIR, _plugin._DYLIB_PATH, _plugin._BINARIES_DIR)
+        saved_env = os.environ.get("APHRODITE_NO_AUTO_DOWNLOAD")
         try:
+            os.environ["APHRODITE_NO_AUTO_DOWNLOAD"] = "1"
             _plugin._PLUGIN_DIR = Path("/opt/Aphrodite-Hermes")  # pyright: ignore[reportAttributeAccessIssue]
             _plugin._DYLIB_PATH = "/nonexistent/libaphrodite_hermes.dylib"  # pyright: ignore[reportAttributeAccessIssue]
+            # The canonical runtime home must not exist either, or the
+            # candidates loop resolves it and the AssertionError never fires
+            # (e.g. on a dev machine with a real installed binary).
+            _plugin._BINARIES_DIR = Path("/nonexistent-aphrodite-binaries")  # pyright: ignore[reportAttributeAccessIssue]
             with self.assertRaises(AssertionError):
                 _plugin._load_dylib()
         finally:
-            _plugin._PLUGIN_DIR, _plugin._DYLIB_PATH = saved  # pyright: ignore[reportAttributeAccessIssue]
+            _plugin._PLUGIN_DIR, _plugin._DYLIB_PATH, _plugin._BINARIES_DIR = saved  # pyright: ignore[reportAttributeAccessIssue]
+            if saved_env is None:
+                os.environ.pop("APHRODITE_NO_AUTO_DOWNLOAD", None)
+            else:
+                os.environ["APHRODITE_NO_AUTO_DOWNLOAD"] = saved_env
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@
 >
 > **CCR compression plugin for Hermes Agent - thin Python loader + Rust dylib.**
 > Sub-ms tool output compression, 28-type classifier, 13 tools, 6 hooks,
-> context engine, dylib hot-reload. Skills ship dev-side, not with the plugin.
+> context engine. Skills ship dev-side, not with the plugin.
 
 Aphrodite intercepts tool output before it reaches the LLM and replaces it with
 compact, structured previews. The agent sees 15 tokens of metadata instead of
@@ -204,10 +204,10 @@ dispatched to the Rust dylib:
 
 > [!NOTE]
 >
-> **Hot-reload**: rebuild the dylib → mtime change detected → the loader copies
-> it to a fresh unique path (`~/.hermes/aphrodite/hotreload/<base>.<pid>.<gen>`)
-> and re-`ctypes.CDLL()`s it - the next call picks up the new code
-> automatically. Stale copies are reaped on startup and shutdown.
+> **No hot-reload**: the dylib is resolved once per process from the installed
+> binary set and loaded directly (`ctypes.CDLL` on the canonical path). The
+> load is deterministic from the pinned tree - it never races a rebuild. To
+> pick up a new build, restart the Hermes session.
 
 ---
 
@@ -263,8 +263,8 @@ ccr_marker_hint = true
 Env var overrides: `APHRODITE_ENGINE_THRESHOLD_PCT`, `APHRODITE_CONTEXT_ENGINE`, etc.
 See [docs/config/env-vars.md](https://github.com/PlayForm/Aphrodite/blob/Current/docs/config/env-vars.md).
 
-`APHRODITE_HOME` relocates the plugin's Python-side data (hot-reload dylib
-copies, `proxy-stderr.log`) from the default `~/.hermes/aphrodite`; the Rust
+`APHRODITE_HOME` relocates the plugin's Python-side data (`proxy-stderr.log`)
+from the default `~/.hermes/aphrodite`; the Rust
 binary does **not** read it - `aphrodite.toml` / `ccr.db` lookup stays put.
 
 Set `APHRODITE_NO_AUTO_LAUNCH=1` to skip the proxy auto-launch entirely, e.g.

@@ -26,7 +26,12 @@ __all__ = ["check_and_heal"]
 logger = logging.getLogger("aphrodite")
 
 _SCHEMA_NAME = "layout_schema.json"
-_DEFAULT_FORBIDDEN = ("binaries", "aphrodite.toml", "ccr.db")
+# `binaries` is NOT in the forbidden set anymore: the catalog-shipping model
+# (PR 118488) puts the immutable release dylibs INTO the plugin tree's
+# `binaries/` (gitignored, pulled by the publish action) so the pinned tree
+# is self-contained. Only runtime-state files (config, ccr.db) are
+# forbidden in the plugin dir.
+_DEFAULT_FORBIDDEN = ("aphrodite.toml", "ccr.db")
 _DEFAULT_RUNTIME_FORBIDDEN = (
     "__init__.py",
     "plugin.yaml",
@@ -183,46 +188,6 @@ def _load_schema() -> dict | None:
     except (OSError, ValueError) as exc:
         logger.warning("aphrodite layout: cannot load %s: %s", schema_path, exc)
         return None
-
-
-def _binary_override_moves(forbidden: Path, env_binary, env_dylib, platform_lib):
-    """Return (src, dst) pairs to move out of the plugin binaries dir."""
-    moves = []
-    if env_binary:
-        src = forbidden / "aphrodite"
-        if src.exists() and not src.is_symlink():
-            moves.append((src, Path(env_binary).expanduser()))
-    if env_dylib and platform_lib:
-        src = forbidden / platform_lib
-        if src.exists() and not src.is_symlink():
-            moves.append((src, Path(env_dylib).expanduser()))
-    return moves
-
-
-def _has_newer_than_canonical(src_dir: Path, canonical_dir: Path) -> bool:
-    """True when a regular file under src_dir is newer than its canonical copy.
-
-    Used to protect mid-refactor binaries: a NEWER-than-canonical binary in
-    the plugin dir is warn-and-skip, never moved or deleted.
-    """
-    if not canonical_dir.is_dir():
-        return False
-    try:
-        for child in src_dir.iterdir():
-            if child.is_dir():
-                if _has_newer_than_canonical(child, canonical_dir / child.name):
-                    return True
-            elif child.is_file() and not child.is_symlink():
-                canon = canonical_dir / child.name
-                if (
-                    canon.is_file()
-                    and not canon.is_symlink()
-                    and child.stat().st_mtime > canon.stat().st_mtime
-                ):
-                    return True
-    except OSError:
-        pass
-    return False
 
 
 # --------------------------------------------------------------------------- #
@@ -421,33 +386,7 @@ def check_and_heal(home_dir=None, dry_run=False, plugin_dir=None) -> dict:
             if forbidden.is_symlink():
                 _warn(f"{forbidden} is a symlink; not moved (ambiguous)")
                 continue
-            if name == "binaries":
-                if _has_newer_than_canonical(forbidden, runtime_home / "binaries"):
-                    _warn(
-                        f"{forbidden} contains a binary newer than the canonical runtime "
-                        "copy; not moved (warn+skip, mid-refactor protection)"
-                    )
-                    continue
-                if env_binary or env_dylib:
-                    moves = _binary_override_moves(forbidden, env_binary, env_dylib, platform_lib)
-                    if not moves:
-                        _warn(f"{forbidden} holds no env-override binaries; left in place")
-                    for src, dst in moves:
-                        _move_out(src, dst, dry_run, _action, _warn)
-                    if not dry_run:
-                        leftovers = [
-                            c.name for c in forbidden.iterdir() if c.exists() or c.is_symlink()
-                        ]
-                        if leftovers:
-                            _warn(
-                                f"binaries left in plugin dir after env-override moves: {leftovers}"
-                            )
-                        else:
-                            _remove(forbidden)
-                            _action(f"removed emptied binaries dir {forbidden}")
-                else:
-                    _move_out(forbidden, runtime_home / "binaries", dry_run, _action, _warn)
-            elif name == "aphrodite.toml":
+            if name == "aphrodite.toml":
                 _move_out(forbidden, config_canonical, dry_run, _action, _warn)
             else:
                 _move_out(forbidden, runtime_home / name, dry_run, _action, _warn)
