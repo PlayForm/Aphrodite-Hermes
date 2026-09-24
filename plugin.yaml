@@ -20,7 +20,6 @@ provides_tools:
   - aphrodite_diff
   - aphrodite_search
   - aphrodite_directive
-  - aphrodite_debug
   - aphrodite_test
   - aphrodite_catalog
   - aphrodite_reclassify
@@ -37,4 +36,4 @@ install_message: |
   Engine: context_engine=true in aphrodite.toml (default-on).
   Download: bash download.sh (fetches prebuilt binary + dylib from GitHub Releases).
   LLM API key: REQUIRED - set APHRODITE_API_KEY (or 'aphrodite setup' / api_key in ~/.hermes/aphrodite/aphrodite.toml). Hermes' provider config is NOT reused - see README 'LLM provider configuration'.
-  Tools: retrieve, compress, stats, rebuild, files, diff, search, directive, debug, test, catalog, reclassify, prefetch, prefetch_status
+  Tools: retrieve, compress, stats, rebuild, files, diff, search, directive, test, catalog, reclassify, prefetch, prefetch_status
