@@ -1,13 +1,3 @@
-# Aphrodite proxy binary + plugin dylib (auto-downloaded by download.sh)
-binaries/aphrodite
-binaries/aphrodite.exe
-binaries/libaphrodite_hermes.dylib
-binaries/libaphrodite.dylib
-binaries/libaphrodite_hermes.so
-binaries/aphrodite_hermes.dll
-binaries/aphrodite-hermes-setup
-binaries/.hotreload/
-
 # Python
 __pycache__/
 *.py[cod]

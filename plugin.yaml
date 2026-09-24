@@ -1,6 +1,6 @@
 name: aphrodite
-version: 2.1.5
-description: "CCR compression plugin - 28-type classifier, 13 tools, dylib hot-reload, context engine, TOML-driven templates."
+version: 2.2.0
+description: "CCR compression plugin - 28-type classifier, 14 tools, context engine, TOML-driven templates."
 kind: standalone
 min_hermes_version: "0.16.0"
 requires_hooks: true
@@ -20,6 +20,7 @@ provides_tools:
   - aphrodite_diff
   - aphrodite_search
   - aphrodite_directive
+  - aphrodite_debug
   - aphrodite_test
   - aphrodite_catalog
   - aphrodite_reclassify
@@ -30,10 +31,10 @@ provides_context_engine: true
 # Skills are NOT shipped with the plugin - they live dev-side in the monorepo's
 # .hermes/skills/ (Development branch only).
 install_message: |
-  aphrodite v2.1.5 - CCR compression plugin for Hermes Agent (Rust-powered).
+  aphrodite v2.2.0 - CCR compression plugin for Hermes Agent (Rust-powered).
   All logic in libaphrodite_hermes.dylib - __init__.py is a thin registration shim.
   Proxies: token (:9798, SQLite, >1KB), cache (:9797, in-memory, >8KB).
   Engine: context_engine=true in aphrodite.toml (default-on).
   Download: bash download.sh (fetches prebuilt binary + dylib from GitHub Releases).
   LLM API key: REQUIRED - set APHRODITE_API_KEY (or 'aphrodite setup' / api_key in ~/.hermes/aphrodite/aphrodite.toml). Hermes' provider config is NOT reused - see README 'LLM provider configuration'.
-  Tools: retrieve, compress, stats, rebuild, files, diff, search, directive, test, catalog, reclassify, prefetch, prefetch_status
+  Tools: retrieve, compress, stats, rebuild, files, diff, search, directive, debug, test, catalog, reclassify, prefetch, prefetch_status

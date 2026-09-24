@@ -1,7 +1,7 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "aphrodite-hermes-runtime-layout",
-  "description": "Canonical ~/.hermes layout for the Aphrodite Hermes plugin. The plugin self-heals toward this schema at startup (layout_check.py); this file is the single machine-readable reference for what is expected where. Path keys use ~/.hermes/... notation where ~ is the user home.",
+  "description": "Canonical ~/.hermes layout for the Aphrodite Hermes plugin. The plugin self-heals toward this schema at startup (layout_check.py); this file is the single machine-readable reference for what is expected where. Path keys use ~/.hermes/... notation where ~ is the user home. The <hermes-home>/plugins/aphrodite install location is Hermes-owned: the plugin NEVER creates, converts, or modifies it - report-only.",
   "home_marker": "~",
   "overrides": {
     "APHRODITE_CONFIG_PATH": {
@@ -41,7 +41,7 @@
       "contents_forbidden": [],
       "canonical_target": "~/.hermes/aphrodite/aphrodite.toml",
       "overrides": ["APHRODITE_CONFIG_PATH"],
-      "note": "Runtime config. Optional (downloader or user creates it), but must never live in the plugin dir."
+      "note": "Runtime config. Optional (download.sh / aphrodite setup creates it), never lives in the plugin dir."
     },
     "~/.hermes/aphrodite/binaries": {
       "kind": "dir",
@@ -49,7 +49,7 @@
       "contents_forbidden": [],
       "canonical_target": "~/.hermes/aphrodite/binaries",
       "overrides": [],
-      "note": "Runtime binaries directory. Optional; the loader/downloader populates it."
+      "note": "Runtime binaries directory. Optional; download.sh / aphrodite setup populates it."
     },
     "~/.hermes/aphrodite/binaries/aphrodite": {
       "kind": "file",
@@ -99,15 +99,14 @@
       "overrides": []
     },
     "~/.hermes/plugins/aphrodite": {
-      "kind": "symlink",
+      "kind": "symlink-or-dir",
       "required": true,
-      "contents_forbidden": ["binaries", "aphrodite.toml", "ccr.db"],
-      "canonical_target": "<plugin real path>: repo plugins/aphrodite or standalone install",
+      "contents_forbidden": [],
+      "canonical_target": "<Hermes-managed install location: symlink to the plugin repo, or a real directory copy - Hermes decides>",
       "overrides": [],
-      "note": "Pure loader/downloader. Must be a symlink to the plugin; never a real directory holding binaries, config, or ccr.db."
+      "note": "HERMES-OWNED install location. The plugin never reads, writes, creates, converts, or deletes anything here - it may be a symlink OR a real directory (Hermes decides at install/enable time). Everything the plugin manages lives in ~/.hermes/aphrodite/."
     }
   },
-  "plugin_dir_forbidden": ["binaries", "aphrodite.toml", "ccr.db"],
   "runtime_home_forbidden": [
     "__init__.py",
     "plugin.yaml",
@@ -119,11 +118,10 @@
     "layout_schema.json"
   ],
   "heal_rules": {
-    "move_forbidden_to_runtime_home": "copy + verify byte-identical + remove source; never overwrite an existing destination; identical duplicate at destination removes only the stale source; differing destination is warn-and-skip",
-    "create_missing_symlinks": "plugin symlink is recreated pointing at the plugin's real path (Path.resolve()); never clobber non-empty real directories",
+    "quarantine_stale_plugin_source": "stray plugin-source files in the runtime home are moved to ~/.hermes/aphrodite/.stale-backup/ when their content verifies as an old or current plugin version (never hard-deleted); warn-and-skip when the file cannot be compared to the tracked plugin file",
+    "runtime_binary_symlink_into_plugin": "a runtime-home binary/dylib that is a symlink resolving into the plugin dir is replaced with a real copy at the same runtime-home path (never touches the plugin dir)",
     "dangling_or_ambiguous": "warn and skip, report-only",
     "never_touch_repo_checkout": "if the plugin resolves into a git checkout, misplaced files are reported but not moved (developers manage the checkout)",
-    "quarantine_stale_plugin_source": "stray plugin-source files in the runtime home are moved to ~/.hermes/aphrodite/.stale-backup/ when their content verifies as an old or current plugin version (never hard-deleted); warn-and-skip when the file cannot be compared to the tracked plugin file",
-    "newer_binary_in_plugin": "a binary in the plugin dir that is newer than its canonical runtime-home counterpart is warn-and-skip (never moved or deleted)"
+    "never_touch_plugins_dir": "the <hermes-home>/plugins/aphrodite path is Hermes-owned: report-only, never created, converted, modified, or deleted by the plugin (catalog review, PR 118488)"
   }
 }

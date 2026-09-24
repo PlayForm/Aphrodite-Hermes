@@ -1,9 +1,12 @@
 """Self-healing layout checker for the Aphrodite Hermes plugin.
 
-Detects and repairs deviations from the canonical ~/.hermes layout described
-in layout_schema.json. The plugin calls ``check_and_heal()`` at startup so a
-broken install (wrong symlinks, misplaced config/binaries, stray plugin-source
-copies, dangling links, stale copies) is fixed automatically.
+Detects and reports deviations from the canonical ~/.hermes layout described
+in layout_schema.json. The plugin calls ``check_and_heal()`` at startup.
+Everything the plugin manages lives in the runtime home (~/.hermes/aphrodite):
+stray plugin-source copies there are quarantined, dangling links are
+reported. The <hermes-home>/plugins/aphrodite install path is Hermes-owned
+and REPORT-ONLY - the plugin never creates, converts, or modifies it (it may
+be a symlink or a real directory; Hermes decides).
 
 The module is standalone: it imports only the standard library, so tests can
 run it directly without Hermes or the rest of the plugin package.  It never
@@ -26,7 +29,10 @@ __all__ = ["check_and_heal"]
 logger = logging.getLogger("aphrodite")
 
 _SCHEMA_NAME = "layout_schema.json"
-_DEFAULT_FORBIDDEN = ("binaries", "aphrodite.toml", "ccr.db")
+# The <hermes-home>/plugins/aphrodite path is Hermes-owned: the plugin never
+# scans it for forbidden contents (it may be a symlink OR a real directory
+# copy; Hermes decides). Everything the plugin manages lives in the runtime
+# home below.
 _DEFAULT_RUNTIME_FORBIDDEN = (
     "__init__.py",
     "plugin.yaml",
@@ -140,57 +146,6 @@ def _move_out(src: Path, dst: Path, dry_run: bool, action, warn) -> None:
     action(f"moved {src} -> {dst} (copy verified)")
 
 
-def _ensure_symlink(link: Path, target: Path, dry_run: bool, action, warn, what: str) -> str:
-    """Make ``link`` a symlink to ``target`` where safe.
-
-    Returns "ok" | "created" | "skipped".  Never clobbers non-empty real
-    directories or replaces unrelated symlinks.
-    """
-    if link.is_symlink():
-        try:
-            resolved = link.resolve()
-        except OSError:
-            resolved = None
-        if resolved is not None and resolved.is_dir():
-            if resolved != target.resolve():
-                warn(f"{what} {link} -> {resolved} differs from expected {target}; left as-is")
-            return "ok"
-        warn(f"{what} {link} is a dangling symlink (-> {resolved}); left as-is")
-        return "skipped"
-    if link.exists():
-        if link.is_dir():
-            try:
-                has_children = any(True for _ in link.iterdir())
-            except OSError:
-                has_children = True
-            if has_children:
-                warn(f"{what} {link} is a non-empty directory; left as-is (user data)")
-                return "skipped"
-            if dry_run:
-                action(f"would remove empty directory {link}")
-            else:
-                try:
-                    link.rmdir()
-                except OSError:
-                    warn(f"could not remove empty directory {link}; left as-is")
-                    return "skipped"
-                action(f"removed empty directory {link}")
-        else:
-            warn(f"{what} {link} exists and is not a directory; left as-is")
-            return "skipped"
-    if dry_run:
-        action(f"would create symlink {link} -> {target}")
-        return "created"
-    try:
-        link.parent.mkdir(parents=True, exist_ok=True)
-        link.symlink_to(target)
-    except OSError:
-        warn(f"failed to create symlink {link} -> {target}")
-        return "skipped"
-    action(f"created symlink {link} -> {target}")
-    return "created"
-
-
 def _replace_symlink_with_copy(path: Path, dry_run: bool, action, warn) -> bool:
     """Replace symlink ``path`` with a real copy of its target when safe."""
     try:
@@ -234,46 +189,6 @@ def _load_schema() -> dict | None:
     except (OSError, ValueError) as exc:
         logger.warning("aphrodite layout: cannot load %s: %s", schema_path, exc)
         return None
-
-
-def _binary_override_moves(forbidden: Path, env_binary, env_dylib, platform_lib):
-    """Return (src, dst) pairs to move out of the plugin binaries dir."""
-    moves = []
-    if env_binary:
-        src = forbidden / "aphrodite"
-        if src.exists() and not src.is_symlink():
-            moves.append((src, Path(env_binary).expanduser()))
-    if env_dylib and platform_lib:
-        src = forbidden / platform_lib
-        if src.exists() and not src.is_symlink():
-            moves.append((src, Path(env_dylib).expanduser()))
-    return moves
-
-
-def _has_newer_than_canonical(src_dir: Path, canonical_dir: Path) -> bool:
-    """True when a regular file under src_dir is newer than its canonical copy.
-
-    Used to protect mid-refactor binaries: a NEWER-than-canonical binary in
-    the plugin dir is warn-and-skip, never moved or deleted.
-    """
-    if not canonical_dir.is_dir():
-        return False
-    try:
-        for child in src_dir.iterdir():
-            if child.is_dir():
-                if _has_newer_than_canonical(child, canonical_dir / child.name):
-                    return True
-            elif child.is_file() and not child.is_symlink():
-                canon = canonical_dir / child.name
-                if (
-                    canon.is_file()
-                    and not canon.is_symlink()
-                    and child.stat().st_mtime > canon.stat().st_mtime
-                ):
-                    return True
-    except OSError:
-        pass
-    return False
 
 
 # --------------------------------------------------------------------------- #
@@ -334,7 +249,15 @@ def check_and_heal(home_dir=None, dry_run=False, plugin_dir=None) -> dict:
     report["schema_version"] = schema.get("schema_version")
 
     try:
-        hermes_root = (Path(home_dir).expanduser() if home_dir else Path.home()) / ".hermes"
+        # Hermes home: $HERMES_HOME when set (expanded), else ~/.hermes -
+        # never hardcode Path.home()/".hermes" (catalog validate runs the
+        # probe against a scratch HERMES_HOME; a heal that resolves the real
+        # ~/.hermes from there rewrites the user's actual install layout).
+        if home_dir is not None:
+            hermes_root = Path(home_dir).expanduser() / ".hermes"
+        else:
+            env_home = os.environ.get("HERMES_HOME", "").strip()
+            hermes_root = Path(env_home).expanduser() if env_home else Path.home() / ".hermes"
         runtime_home = hermes_root / "aphrodite"
         plugin_link = hermes_root / "plugins" / "aphrodite"
         backup_dir = runtime_home / ".stale-backup"
@@ -447,54 +370,6 @@ def check_and_heal(home_dir=None, dry_run=False, plugin_dir=None) -> dict:
             if not _replace_symlink_with_copy(bpath, dry_run, _action, _warn):
                 _warn(f"could not replace stale symlink {bpath} with a real copy; left as-is")
 
-        # --- forbidden contents inside the plugin dir ------------------------ #
-        for name in schema.get("plugin_dir_forbidden") or _DEFAULT_FORBIDDEN:
-            forbidden = plugin_scan_dir / name
-            if not (forbidden.exists() or forbidden.is_symlink()):
-                _check(f"plugin_forbidden:{name}", "ok", f"no '{name}' inside plugin dir")
-                continue
-            _check(
-                f"plugin_forbidden:{name}",
-                "mismatch",
-                f"forbidden '{name}' present inside plugin dir: {forbidden}",
-            )
-            if checkout:
-                _warn(f"{forbidden} not moved: plugin dir is a git checkout")
-                continue
-            if forbidden.is_symlink():
-                _warn(f"{forbidden} is a symlink; not moved (ambiguous)")
-                continue
-            if name == "binaries":
-                if _has_newer_than_canonical(forbidden, runtime_home / "binaries"):
-                    _warn(
-                        f"{forbidden} contains a binary newer than the canonical runtime "
-                        "copy; not moved (warn+skip, mid-refactor protection)"
-                    )
-                    continue
-                if env_binary or env_dylib:
-                    moves = _binary_override_moves(forbidden, env_binary, env_dylib, platform_lib)
-                    if not moves:
-                        _warn(f"{forbidden} holds no env-override binaries; left in place")
-                    for src, dst in moves:
-                        _move_out(src, dst, dry_run, _action, _warn)
-                    if not dry_run:
-                        leftovers = [
-                            c.name for c in forbidden.iterdir() if c.exists() or c.is_symlink()
-                        ]
-                        if leftovers:
-                            _warn(
-                                f"binaries left in plugin dir after env-override moves: {leftovers}"
-                            )
-                        else:
-                            _remove(forbidden)
-                            _action(f"removed emptied binaries dir {forbidden}")
-                else:
-                    _move_out(forbidden, runtime_home / "binaries", dry_run, _action, _warn)
-            elif name == "aphrodite.toml":
-                _move_out(forbidden, config_canonical, dry_run, _action, _warn)
-            else:
-                _move_out(forbidden, runtime_home / name, dry_run, _action, _warn)
-
         # --- stray plugin-source files inside the runtime home --------------- #
         for name in schema.get("runtime_home_forbidden") or _DEFAULT_RUNTIME_FORBIDDEN:
             stray = runtime_home / name
@@ -522,7 +397,14 @@ def check_and_heal(home_dir=None, dry_run=False, plugin_dir=None) -> dict:
             # only safe reads are quarantine (never hard-delete user data).
             _move_out(stray, backup_dir / name, dry_run, _action, _warn)
 
-        # --- ~/.hermes/plugins/aphrodite ------------------------------------ #
+        # --- <hermes-home>/plugins/aphrodite (REPORT-ONLY) ----------------- #
+        # The plugin must never rewrite the install layout under
+        # <hermes-home>/plugins/ at register time - that directory is owned
+        # by Hermes (plugin install/remove/enable). `hermes plugins validate`
+        # runs the probe against a scratch HERMES_HOME and a heal that
+        # creates/converts a symlink there rewrites the real install layout
+        # (teknium review, PR 118488). Report state only; never create,
+        # convert, or delete anything under plugins/.
         if plugin_link.is_symlink():
             resolved_link = plugin_link.resolve()
             if resolved_link.is_dir():
@@ -542,22 +424,17 @@ def check_and_heal(home_dir=None, dry_run=False, plugin_dir=None) -> dict:
         elif plugin_link.exists():
             _check(
                 "plugin_link",
-                "mismatch",
-                f"plugin path {plugin_link} is a real directory, not a symlink",
+                "ok",
+                f"plugin path {plugin_link} is a real directory (installed layout; "
+                "report-only, never converted)",
             )
-            if plugin_real is None or not plugin_real.is_dir():
-                _warn(f"cannot convert {plugin_link} to a symlink: plugin real path unavailable")
-            elif (
-                _ensure_symlink(plugin_link, plugin_real, dry_run, _action, _warn, "plugin path")
-                == "skipped"
-            ):
-                _warn(f"plugin path {plugin_link} left as-is (non-empty or in use)")
         else:
-            _check("plugin_link", "mismatch", f"missing plugin symlink {plugin_link}")
-            if plugin_real is not None and plugin_real.is_dir():
-                _ensure_symlink(plugin_link, plugin_real, dry_run, _action, _warn, "plugin path")
-            else:
-                _warn("plugin symlink not created: plugin real path unavailable")
+            _check(
+                "plugin_link",
+                "ok",
+                f"no plugin path at {plugin_link} (report-only; install layout is "
+                "managed by Hermes, not the plugin)",
+            )
 
         # --- config presence ------------------------------------------------- #
         config_present = config_canonical.is_file() or config_canonical.is_symlink()

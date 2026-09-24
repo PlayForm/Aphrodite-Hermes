@@ -18,7 +18,7 @@ _libs = {}
 
 # ── Runtime binder (post-processed by codegen/finalize_bindings.py) ──────────
 # Importing this module NEVER loads a library (no hardcoded dylib path): the
-# plugin owns the live CDLL handle (hot-reload unique-path copy) and calls
+# plugin owns the live CDLL handle and calls
 # bind_to(dylib) to replay the declarations below onto it. The loops call
 # hasattr/getattr directly - no lookup adapter class is needed. errcheck is
 # stripped unconditionally: pointer restypes are rewritten to c_void_p FIRST
