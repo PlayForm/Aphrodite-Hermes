@@ -1,5 +1,5 @@
 name: aphrodite
-version: 2.2.3
+version: 2.2.4
 description: "CCR compression plugin - 28-type classifier, 14 tools, context engine, TOML-driven templates."
 kind: standalone
 min_hermes_version: "0.16.0"
@@ -30,7 +30,7 @@ provides_context_engine: true
 # Skills are NOT shipped with the plugin - they live dev-side in the monorepo's
 # .hermes/skills/ (Development branch only).
 install_message: |
-  aphrodite v2.2.3 - CCR compression plugin for Hermes Agent (Rust-powered).
+  aphrodite v2.2.4 - CCR compression plugin for Hermes Agent (Rust-powered).
   All logic in libaphrodite_hermes.dylib - __init__.py is a thin registration shim.
   Proxies: token (:9798, SQLite, >1KB), cache (:9797, in-memory, >8KB).
   Engine: context_engine=true in aphrodite.toml (default-on).
