@@ -268,9 +268,16 @@ def check_and_heal(home_dir=None, dry_run=False, plugin_dir=None) -> dict:
         # around the home mismatch with APHRODITE_HOME never gets required
         # dirs (re)created under a second, shadow home.
         env_runtime = os.environ.get("APHRODITE_HOME", "").strip()
-        runtime_home = (
-            Path(env_runtime).expanduser() if env_runtime else hermes_root / "aphrodite"
-        )
+        if env_runtime and not Path(env_runtime).expanduser().is_absolute():
+            # Both halves resolve a relative override the same way
+            # (cwd-relative), so it still agrees - but it is almost always a
+            # mistake; surface it so the heal never silently operates on an
+            # unexpected location.
+            _warn(
+                f"APHRODITE_HOME={env_runtime!r} is not absolute; resolving it "
+                "relative to the current directory"
+            )
+        runtime_home = Path(env_runtime).expanduser() if env_runtime else hermes_root / "aphrodite"
         plugin_link = hermes_root / "plugins" / "aphrodite"
         backup_dir = runtime_home / ".stale-backup"
 
