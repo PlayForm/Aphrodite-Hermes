@@ -1,9 +1,12 @@
 """Self-healing layout checker for the Aphrodite Hermes plugin.
 
-Detects and reports deviations from the canonical ~/.hermes layout described
+Detects and reports deviations from the canonical layout described
 in layout_schema.json. The plugin calls ``check_and_heal()`` at startup.
-Everything the plugin manages lives in the runtime home (~/.hermes/aphrodite):
-stray plugin-source copies there are quarantined, dangling links are
+Everything the plugin manages lives in the runtime home: the single
+decision shared with the plugin shim and the Rust half (issue 40) -
+``$APHRODITE_HOME`` when set (the shim exports its own resolution there),
+else ``$HERMES_HOME`` + ``/aphrodite``, else ``~/.hermes/aphrodite``.
+Stray plugin-source copies there are quarantined, dangling links are
 reported. The <hermes-home>/plugins/aphrodite install path is Hermes-owned
 and REPORT-ONLY - the plugin never creates, converts, or modifies it (it may
 be a symlink or a real directory; Hermes decides).
@@ -258,7 +261,16 @@ def check_and_heal(home_dir=None, dry_run=False, plugin_dir=None) -> dict:
         else:
             env_home = os.environ.get("HERMES_HOME", "").strip()
             hermes_root = Path(env_home).expanduser() if env_home else Path.home() / ".hermes"
-        runtime_home = hermes_root / "aphrodite"
+        # Runtime home: the SAME single decision the plugin shim makes (issue
+        # 40 F3). The shim exports its resolution through APHRODITE_HOME
+        # (env setdefault at import), so honoring it here keeps the heal
+        # consistent with what the plugin actually uses - a user who works
+        # around the home mismatch with APHRODITE_HOME never gets required
+        # dirs (re)created under a second, shadow home.
+        env_runtime = os.environ.get("APHRODITE_HOME", "").strip()
+        runtime_home = (
+            Path(env_runtime).expanduser() if env_runtime else hermes_root / "aphrodite"
+        )
         plugin_link = hermes_root / "plugins" / "aphrodite"
         backup_dir = runtime_home / ".stale-backup"
 
@@ -320,7 +332,15 @@ def check_and_heal(home_dir=None, dry_run=False, plugin_dir=None) -> dict:
             rel = path_key[len("~/.hermes/") :] if path_key.startswith("~/.hermes/") else path_key
             if rel.endswith("aphrodite-*") or spec.get("kind") != "dir":
                 continue
-            actual = hermes_root / rel if rel else hermes_root
+            # Schema keys use ~/.hermes/... notation; entries under
+            # ~/.hermes/aphrodite/ are runtime-home entries and follow the
+            # single runtime-home decision (APHRODITE_HOME when set), so the
+            # heal never creates required dirs under a shadow home (issue 40
+            # F3).
+            if rel == "aphrodite" or rel.startswith("aphrodite/"):
+                actual = runtime_home / rel[len("aphrodite") :].lstrip("/")
+            else:
+                actual = hermes_root / rel if rel else hermes_root
             if actual.is_dir():
                 _check(f"dir:{rel}", "ok", str(actual))
             elif actual.exists():

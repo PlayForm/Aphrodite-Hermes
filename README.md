@@ -269,9 +269,31 @@ ccr_marker_hint = true
 Env var overrides: `APHRODITE_ENGINE_THRESHOLD_PCT`, `APHRODITE_CONTEXT_ENGINE`, etc.
 See [docs/config/env-vars.md](https://github.com/PlayForm/Aphrodite/blob/Current/docs/config/env-vars.md).
 
-`APHRODITE_HOME` relocates the plugin's Python-side data (`proxy-stderr.log`)
-from the default `~/.hermes/aphrodite`; the Rust
-binary does **not** read it - `aphrodite.toml` / `ccr.db` lookup stays put.
+### Runtime home (one decision, shared by both halves)
+
+The runtime home - where `aphrodite.toml`, `binaries/`, `directives/`,
+`ccr.db`, and `proxy-stderr.log` live - is resolved by **one shared
+decision**, made identically by the plugin shim and the Rust binary:
+
+1. `APHRODITE_HOME` - explicit override; never second-guessed.
+2. `<hermes-home>/aphrodite` - `$HERMES_HOME` when set (Docker image,
+   profile gateways), else `~/.hermes/aphrodite`.
+
+At startup the shim exports its decision into `APHRODITE_HOME` (and
+`APHRODITE_DIRECTIVES_DIR`), so the dylib and the spawned proxy binary
+resolve the same directory by construction - the two halves cannot diverge.
+The startup log names the result: `runtime home: <path> (decided by
+APHRODITE_HOME override|HERMES_HOME|default)`.
+
+**Upgrading from ≤ 2.1.5:** when the Hermes-home-derived runtime home does
+not hold an install but the pre-2.2 `~/.hermes/aphrodite` does, the old home
+is **adopted** (a one-line warning in the log) - nothing is migrated and
+`binaries/` / `aphrodite.toml` keep resolving. Adoption never fires for a
+throwaway/scratch `HERMES_HOME` (e.g. the `hermes plugins validate` probe,
+which must stay isolated from the real install). Set `APHRODITE_HOME` to pin
+the location explicitly. The Rust binary follows the same resolution, so
+standalone runs (`aphrodite setup`, proxy launches) agree even without the
+shim.
 
 Set `APHRODITE_NO_AUTO_LAUNCH=1` to skip the proxy auto-launch entirely, e.g.
 when a `cargo watch` dev loop runs the proxy itself.
