@@ -6,9 +6,9 @@
 # parent repo to its child submodule so the pinned plugin tree carries the
 # list. download.sh downloads from the release and validates every asset
 # against this file, REFUSING on mismatch. Targets without an entry here are
-# not published for this BINARY_VERSION; download.sh falls back to the
-# release's own SHA256SUMS-<target>.txt asset for those (and hard-fails if
-# that is absent too).
+# not published for this BINARY_VERSION; download.sh refuses to install for
+# them (mandatory in-tree sums - no fallback to release-hosted checksums,
+# catalog review PR 118488).
 BINARY_VERSION: 1.5.1
 
 aarch64-apple-darwin:
