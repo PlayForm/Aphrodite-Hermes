@@ -3,7 +3,7 @@
 > [!NOTE]
 >
 > **CCR compression plugin for Hermes Agent - thin Python loader + Rust dylib.**
-> Sub-ms tool output compression, 28-type classifier, 13 tools, 6 hooks,
+> Sub-ms tool output compression, 30-type classifier, 13 tools, 6 hooks,
 > context engine. Skills ship dev-side, not with the plugin.
 
 Aphrodite intercepts tool output before it reaches the LLM and replaces it with
@@ -11,7 +11,7 @@ compact, structured previews. The agent sees 15 tokens of metadata instead of
 500 tokens of raw text - and retrieves the full content only when it actually
 needs it. **All compression logic runs in the Rust dylib.**
 
-[![plugin](https://img.shields.io/static/v1?label=plugin&message=v2.2.5&color=purple)](plugin.yaml)
+[![plugin](https://img.shields.io/static/v1?label=plugin&message=v2.2.6&color=purple)](plugin.yaml)
 [![hermes](https://img.shields.io/static/v1?label=hermes&message=0.16.0%2B&color=blue)](https://github.com/NousResearch/hermes-agent)
 [![license](https://img.shields.io/static/v1?label=license&message=CC0-1.0&color=lightgrey)](LICENSE)
 
@@ -19,13 +19,16 @@ needs it. **All compression logic runs in the Rust dylib.**
 
 ## Install ⚡
 
-### One-command
+### Hermes plugin + explicit setup
 
 **`Terminal`**
 
 ```bash
 git clone https://github.com/PlayForm/Aphrodite-Hermes.git
-ln -s "$(pwd)/Aphrodite-Hermes" ~/.hermes/plugins/aphrodite
+cd Aphrodite-Hermes
+ln -s "$(pwd)" ~/.hermes/plugins/aphrodite
+bash download.sh # explicit setup step: binary + dylib from GitHub Releases
+cd ..
 hermes plugins enable aphrodite
 hermes
 ```
@@ -155,7 +158,7 @@ load the dylib via ctypes and register its surface with Hermes.
  Hermes Agent (hooks + tool dispatch)
     │
     ▼
- plugins/aphrodite/__init__.py        ← 1100-line Python loader
+ plugins/aphrodite/__init__.py        ← ~1,150-line Python loader
     │  ctypes FFI, registers hooks/tools/engine - no logic
     ▼
  libaphrodite_hermes.dylib            ← Hermes bridge (JSON contract)
@@ -246,24 +249,24 @@ All tuning in `aphrodite.toml` - searched in `./aphrodite.toml`, then
 
 ```toml
 [compression]
-engine_threshold_pct = 100   # 100% = engine effectively off (standing feedback); lower = compress sooner
+engine_threshold_pct = 45    # shipped default (dylib status flag); 100+ disables engine compression
 engine_protect_first = 2     # messages to keep at start
 engine_protect_last = 5      # messages to keep at end
 engine_min_msgs = 8          # minimum before activating
-tool_threshold_token = 256   # token proxy threshold (bytes)
-tool_threshold_cache = 2048  # cache proxy threshold (bytes)
-terminal_threshold  = 512    # terminal output threshold (bytes)
-inline_threshold    = 1024   # inline-vs-durable CCR storage cutoff (bytes)
+tool_threshold_token = 512   # token proxy threshold (bytes)
+tool_threshold_cache = 4096  # cache proxy threshold (bytes)
+terminal_threshold  = 1024   # terminal output threshold (bytes)
+inline_threshold    = 2048   # inline-vs-durable CCR storage cutoff (bytes)
 code_multiplier     = 3.0    # keep code in context longer
-context_engine      = true   # default-on, no env var needed
+context_engine      = true   # dylib status flag; default-on, no env var needed
 
 [previews]
 model_family = "code_first"  # compact | code_first | balance
 code_structure_map = true    # show fn/struct/class sigs
 
 [prompts]
-retrieve_guidance = "verbose"
-ccr_marker_hint = true
+retrieve_guidance = "minimal"
+ccr_marker_hint = false
 ```
 
 Env var overrides: `APHRODITE_ENGINE_THRESHOLD_PCT`, `APHRODITE_CONTEXT_ENGINE`, etc.
@@ -341,7 +344,7 @@ ports before launching (see `_start_proxy`).
 
 ```text
 Aphrodite-Hermes/
-├── __init__.py          ← 1100-line Python loader (ctypes FFI)
+├── __init__.py          ← ~1,150-line Python loader (ctypes FFI)
 ├── plugin.yaml          ← 13 tools, 6 hooks, context engine
 ├── download.sh          ← Explicit binary fetch (macOS/Linux/Git Bash/WSL; optional - validates in-tree checksums)
 ├── download.ps1         ← Explicit binary fetch (native Windows PowerShell; optional)
