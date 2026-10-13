@@ -1,0 +1,2 @@
+6a66a87d7e004768200b6ff60b404c0531a7deb0e9327599236f30d691a62608  aphrodite-aarch64-apple-darwin
+ddaddc3592be8d23cba3de6204bb453d9d77ea11a055acc749e04798065a0408  libaphrodite_hermes-aarch64-apple-darwin.dylib
