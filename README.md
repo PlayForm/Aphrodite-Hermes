@@ -51,6 +51,29 @@ you hold a marker for.
   exact-pinned rhai 1.25.1 micro-script engine; the default build never pulls
   it in.
 
+## Repositories
+
+Aphrodite is split across **two repositories** - the parent monorepo owns the
+Rust engine and the release pipeline; this repository is the thin Hermes
+plugin that loads it.
+
+| Repository                                                                | Role                                                                                                                                            | Key paths                                                                                                                                                 |
+| :------------------------------------------------------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [PlayForm/Aphrodite](https://github.com/PlayForm/Aphrodite)               | **Parent monorepo** - Rust engine, binary proxy, docs, CI, releases. This plugin is a git submodule of it (`plugins/aphrodite`).                | `crates/aphrodite` (core engine) · `crates/aphrodite-hermes` (dylib bridge) · `vendor/headroom` (owned fork) · `.github/workflows/` (Build/Publish/Check) |
+| [PlayForm/Aphrodite-Hermes](https://github.com/PlayForm/Aphrodite-Hermes) | **This repository** - the Hermes plugin (thin Python loader). No Rust, no compression logic; everything lives in the dylib built by the parent. | `__init__.py` · `plugin.yaml` · `download.sh` / `download.ps1` · `BINARY_VERSION` · `SHA256SUMS.txt`                                                      |
+
+**Development model:** the parent's `Development` branch accumulates the
+Rust engine; this plugin's `Development` branch accumulates the loader. At
+release time the plugin is synced first (submodule-first), then the parent
+floats its gitlink to the plugin commit, and the parent tag drives
+`Build.yml` (12 release assets) → `Publish.yml` (`cargo publish`). The
+plugin's `BINARY_VERSION` names the binary release it expects; `download.sh`
+fetches it from the parent's GitHub Release and verifies the in-tree
+`SHA256SUMS.txt`.
+
+See the parent's [docs](https://github.com/PlayForm/Aphrodite/blob/Current/README.md)
+for the engine, configuration reference, and the full release ceremony.
+
 [![plugin](https://img.shields.io/static/v1?label=plugin&message=v2.3.0&color=purple)](plugin.yaml)
 [![hermes](https://img.shields.io/static/v1?label=hermes&message=0.16.0%2B&color=blue)](https://github.com/NousResearch/hermes-agent)
 [![license](https://img.shields.io/static/v1?label=license&message=CC0-1.0&color=lightgrey)](LICENSE)
