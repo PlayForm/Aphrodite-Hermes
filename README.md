@@ -3,15 +3,55 @@
 > [!NOTE]
 >
 > **CCR compression plugin for Hermes Agent - thin Python loader + Rust dylib.**
-> Sub-ms tool output compression, 30-type classifier, 13 tools, 6 hooks,
-> context engine. Skills ship dev-side, not with the plugin.
+> Sub-ms tool output compression, multi-type classifier, 13 tools, 6 hooks,
+> default-on context engine, TOML-driven templates, auto-expand, live
+> containers, prompt knobs, recursion/body caps, optional Rhai scripting.
+> Skills ship dev-side, not with the plugin.
 
 Aphrodite intercepts tool output before it reaches the LLM and replaces it with
 compact, structured previews. The agent sees 15 tokens of metadata instead of
 500 tokens of raw text - and retrieves the full content only when it actually
 needs it. **All compression logic runs in the Rust dylib.**
 
-[![plugin](https://img.shields.io/static/v1?label=plugin&message=v2.2.6&color=purple)](plugin.yaml)
+**Priced retrieval:** every `<<<CCR:hash|type|size>>>` marker's `size` is its
+**retrieval cost** - resolving it re-adds that many bytes to context. Previews
+answer the structural questions (succeeded? which files? how many? what
+shape?) for free; deferral is safe - markers persist and stay retrievable;
+batch the retrievals you actually need into one turn. Never re-read a file
+you hold a marker for.
+
+## Features ⚡
+
+- **CCR compression** - tool output becomes a compact
+  `<<<CCR:hash|type|size>>>` marker; the full content stays in the store until
+  you retrieve it.
+- **TOML-driven templates** - `[templates.preview.<family>.<ctype>]` format
+  strings, a `[templates.marker]` block (format + hint), `[templates.prompts]`
+  session_inject, and a `[templates.reverse]` ctype→key remap. Resolution:
+  `family[ctype]` → `reverse[ctype]` → `family[_default]` → hardcoded builder.
+- **Auto-expand** - `[compression] auto_expand` resolves just-stored content
+  inline instead of emitting a marker, capped by `auto_expand_limit`
+  (default 102400 bytes; `APHRODITE_AUTO_EXPAND` / `APHRODITE_AUTO_EXPAND_LIMIT`
+  override).
+- **Context engine (default-on)** - once the session passes
+  `engine_threshold_pct` (default 30) of context fill, overflowing middle
+  turns are archived and an engine_offload prompt is injected;
+  `engine_protect_first` / `engine_protect_last` / `engine_min_msgs` guard the
+  conversation edges; 100+ turns the engine off.
+- **Live containers** - `[compression] live_container` (or
+  `APHRODITE_LIVE_CONTAINER`) turns large tool results into instant `live`
+  CCR markers with progressive chunked retrieval and an ETA.
+- **Prompt knobs** - `retrieve_guidance`, `ccr_marker_hint`, and
+  `catalog_intent_hints` tune how the system instructs the LLM about CCR.
+- **Recursion & body caps** - `[compression] recursive_depth` /
+  `APHRODITE_RECURSIVE_DEPTH` (default 5) bounds nested expansion;
+  `[compression] max_request_body_size` / `APHRODITE_MAX_REQUEST_BODY_SIZE`
+  (optional, unset = no cap) bounds request bodies.
+- **Rhai scripting (optional)** - the `scripting` Cargo feature links an
+  exact-pinned rhai 1.25.1 micro-script engine; the default build never pulls
+  it in.
+
+[![plugin](https://img.shields.io/static/v1?label=plugin&message=v2.3.0&color=purple)](plugin.yaml)
 [![hermes](https://img.shields.io/static/v1?label=hermes&message=0.16.0%2B&color=blue)](https://github.com/NousResearch/hermes-agent)
 [![license](https://img.shields.io/static/v1?label=license&message=CC0-1.0&color=lightgrey)](LICENSE)
 
@@ -110,7 +150,7 @@ plugins:
 # Recommended additions (manual)
 context:
     engine: aphrodite
-    engine_threshold_pct: 100 # 100 = engine effectively off; lower = compress sooner
+    engine_threshold_pct: 30 # % of context filled before archiving kicks in; 100+ = engine off
 model:
     context_length: 1000000
 ```
@@ -168,7 +208,8 @@ load the dylib via ctypes and register its surface with Hermes.
     │  hooks · resolve · retrieve · marker · preview
     │  stage2 · struct_extract · state · session
     │  catalog · prefetch · poll_worker · directives
-    │  config_loader · builtin_directives
+    │  config_loader · templates · builtin_directives
+    │  scripting (optional Cargo feature)
     ▼
  CCR store (SQLite :9798 / in-memory :9797 / inline)
 ```
@@ -249,27 +290,42 @@ All tuning in `aphrodite.toml` - searched in `./aphrodite.toml`, then
 
 ```toml
 [compression]
-engine_threshold_pct = 45    # shipped default (dylib status flag); 100+ disables engine compression
+engine_threshold_pct = 30    # % of context filled before middle-turn archiving; 100+ disables the engine
 engine_protect_first = 2     # messages to keep at start
 engine_protect_last = 5      # messages to keep at end
-engine_min_msgs = 8          # minimum before activating
-tool_threshold_token = 512   # token proxy threshold (bytes)
-tool_threshold_cache = 4096  # cache proxy threshold (bytes)
-terminal_threshold  = 1024   # terminal output threshold (bytes)
-inline_threshold    = 2048   # inline-vs-durable CCR storage cutoff (bytes)
-code_multiplier     = 3.0    # keep code in context longer
-context_engine      = true   # dylib status flag; default-on, no env var needed
+engine_min_msgs = 8          # minimum messages before the engine activates
+tool_threshold_token = 256   # token proxy threshold (bytes)
+tool_threshold_cache = 2048  # cache proxy threshold (bytes)
+terminal_threshold  = 256    # terminal output threshold (bytes)
+inline_threshold    = 1024   # inline-vs-durable CCR storage cutoff (bytes)
+code_multiplier     = 1.0    # 1.0 = code compresses at the base threshold
+auto_expand         = true   # resolve just-stored content inline instead of emitting a marker
+auto_expand_limit   = 102400 # byte cap for auto-expanded content (0 = unlimited)
+live_container      = false  # instant 'live' CCR markers for large tool results
+recursive_depth     = 5      # max nested expansion depth
+# max_request_body_size = 10485760  # optional request-body cap (unset = no cap)
+context_engine      = true   # engine status flag, default-on
 
 [previews]
-model_family = "code_first"  # compact | code_first | balance
-code_structure_map = true    # show fn/struct/class sigs
+model_family = "code_first"  # family selector for [templates.preview]; only matters when templates are configured
 
 [prompts]
-retrieve_guidance = "minimal"
-ccr_marker_hint = false
+retrieve_guidance = "minimal"   # prompt knob: how the LLM is told to use retrieval
+ccr_marker_hint = false         # prompt knob: marker hint text
+catalog_intent_hints = false    # prompt knob: per-intent catalog hints
+
+[templates]                     # optional: format strings; absent = built-in builders
+# preview.<family>.<ctype> = "format string"
+# [templates.marker] format / hint
+# [templates.prompts] session_inject
+# [templates.reverse] ctype -> key remap
 ```
 
-Env var overrides: `APHRODITE_ENGINE_THRESHOLD_PCT`, `APHRODITE_CONTEXT_ENGINE`, etc.
+Env var overrides: `APHRODITE_ENGINE_THRESHOLD_PCT`, `APHRODITE_CONTEXT_ENGINE`,
+`APHRODITE_AUTO_EXPAND`/`APHRODITE_AUTO_EXPAND_LIMIT`, `APHRODITE_LIVE_CONTAINER`,
+`APHRODITE_RECURSIVE_DEPTH`, `APHRODITE_MAX_REQUEST_BODY_SIZE`, etc. Preview and
+marker format variables, plus the resolution order, are defined in
+`crates/aphrodite/src/templates.rs`.
 See [docs/config/env-vars.md](https://github.com/PlayForm/Aphrodite/blob/Current/docs/config/env-vars.md).
 
 ### Runtime home (one decision, shared by both halves)
