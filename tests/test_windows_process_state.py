@@ -224,6 +224,23 @@ def proxy_shim(tmp_path, monkeypatch):
     sys.modules.pop("_aphrodite_shim_proxy", None)
 
 
+# Warnings that are artifacts of the synthetic APHRODITE_HOME every
+# `_start_proxy` test uses: it holds no binaries (so `_ensure_binaries` warns
+# that the plugin will not register) and no aphrodite.toml (so the launcher
+# warns that the proxy fell back to compiled-in CLI defaults). Both are
+# correct in production and meaningless in a fixture.
+_FIXTURE_WARNINGS = ("aphrodite binaries missing", "aphrodite.toml is missing")
+
+
+def _unexpected_warnings(caplog) -> list:
+    return [
+        r
+        for r in caplog.records
+        if r.levelno >= logging.WARNING
+        and not any(marker in r.getMessage() for marker in _FIXTURE_WARNINGS)
+    ]
+
+
 def test_start_proxy_skips_launch_when_both_proxies_healthy(proxy_shim, monkeypatch, caplog):
     mod, tmp_path = proxy_shim
     probed: list[str] = []
@@ -247,7 +264,7 @@ def test_start_proxy_skips_launch_when_both_proxies_healthy(proxy_shim, monkeypa
     assert not (tmp_path / "proxy-stderr.log").exists(), "no stderr log line may be appended"
     skip_records = [r for r in caplog.records if "already healthy" in r.getMessage()]
     assert skip_records and skip_records[0].levelno == logging.INFO
-    assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+    assert not _unexpected_warnings(caplog)
 
 
 def test_start_proxy_launches_when_ports_are_free(proxy_shim, monkeypatch, caplog):
@@ -273,7 +290,7 @@ def test_start_proxy_launches_when_ports_are_free(proxy_shim, monkeypatch, caplo
 
     assert popen_calls == [[mod._BINARY_PATH]]
     assert (tmp_path / "proxy-stderr.log").exists(), "stderr log lives under APHRODITE_HOME"
-    assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+    assert not _unexpected_warnings(caplog)
 
 
 def test_start_proxy_honours_no_auto_launch(proxy_shim, monkeypatch):
@@ -322,7 +339,7 @@ def test_start_proxy_still_launches_when_only_one_port_healthy(proxy_shim, monke
     assert popen_calls == [[mod._BINARY_PATH]], (
         "half-up (one port healthy, one dead) must still launch, not skip"
     )
-    assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+    assert not _unexpected_warnings(caplog)
 
 
 def test_foreign_200_responder_does_not_skip_launch(proxy_shim, monkeypatch):
