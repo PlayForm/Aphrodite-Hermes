@@ -327,6 +327,12 @@ auto_expand_limit   = 102400 # byte cap for auto-expanded content (0 = unlimited
 live_container      = false  # instant 'live' CCR markers for large tool results
 recursive_depth     = 5      # max nested expansion depth
 # max_request_body_size = 10485760  # optional request-body cap (unset = no cap)
+# Store retention (SQLite token proxy): ccr_ttl_seconds bounds the store in
+# TIME, these bound it in SPACE. Past either cap the least-recently-accessed
+# rows are evicted (a cache policy: an evicted hash is a retrieval miss, like
+# an expired one). 0 = unlimited.
+store_max_entries   = 100000    # max live rows
+store_max_bytes     = 536870912 # max stored payload bytes
 context_engine      = true   # engine status flag, default-on
 
 [previews]
