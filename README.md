@@ -74,7 +74,7 @@ fetches it from the parent's GitHub Release and verifies the in-tree
 See the parent's [docs](https://github.com/PlayForm/Aphrodite/blob/Current/README.md)
 for the engine, configuration reference, and the full release ceremony.
 
-[![plugin](https://img.shields.io/static/v1?label=plugin&message=v2.3.0&color=purple)](plugin.yaml)
+[![plugin](https://img.shields.io/static/v1?label=plugin&message=v2.3.1&color=purple)](plugin.yaml)
 [![hermes](https://img.shields.io/static/v1?label=hermes&message=0.16.0%2B&color=blue)](https://github.com/NousResearch/hermes-agent)
 [![license](https://img.shields.io/static/v1?label=license&message=CC0-1.0&color=lightgrey)](LICENSE)
 
