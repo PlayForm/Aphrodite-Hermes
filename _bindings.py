@@ -41,6 +41,15 @@ def bind_to(_dylib):
     """
     _libs['__APHRODITE_DYLIB__'] = _dylib
     for _lib in _libs.values():
+        if not hasattr(_lib, "aphrodite_hermes_call_hook"):
+            continue
+        aphrodite_hermes_call_hook = getattr(_lib, "aphrodite_hermes_call_hook")
+        aphrodite_hermes_call_hook.argtypes = [c_char_p, c_char_p]
+        aphrodite_hermes_call_hook.restype = c_void_p
+        break
+
+    # aphrodite_hermes.h: 25
+    for _lib in _libs.values():
         if not hasattr(_lib, "aphrodite_hermes_dispatch_tool"):
             continue
         aphrodite_hermes_dispatch_tool = getattr(_lib, "aphrodite_hermes_dispatch_tool")
@@ -48,25 +57,7 @@ def bind_to(_dylib):
         aphrodite_hermes_dispatch_tool.restype = c_void_p
         break
 
-    # aphrodite_hermes.h: 21
-    for _lib in _libs.values():
-        if not hasattr(_lib, "aphrodite_hermes_list_tools"):
-            continue
-        aphrodite_hermes_list_tools = getattr(_lib, "aphrodite_hermes_list_tools")
-        aphrodite_hermes_list_tools.argtypes = []
-        aphrodite_hermes_list_tools.restype = c_void_p
-        break
-
-    # aphrodite_hermes.h: 26
-    for _lib in _libs.values():
-        if not hasattr(_lib, "aphrodite_hermes_get_schema"):
-            continue
-        aphrodite_hermes_get_schema = getattr(_lib, "aphrodite_hermes_get_schema")
-        aphrodite_hermes_get_schema.argtypes = [c_char_p]
-        aphrodite_hermes_get_schema.restype = c_void_p
-        break
-
-    # aphrodite_hermes.h: 31
+    # aphrodite_hermes.h: 30
     for _lib in _libs.values():
         if not hasattr(_lib, "aphrodite_hermes_free_string"):
             continue
@@ -75,34 +66,7 @@ def bind_to(_dylib):
         aphrodite_hermes_free_string.restype = None
         break
 
-    # aphrodite_hermes.h: 36
-    for _lib in _libs.values():
-        if not hasattr(_lib, "aphrodite_hermes_version"):
-            continue
-        aphrodite_hermes_version = getattr(_lib, "aphrodite_hermes_version")
-        aphrodite_hermes_version.argtypes = []
-        aphrodite_hermes_version.restype = c_void_p
-        break
-
-    # aphrodite_hermes.h: 51
-    for _lib in _libs.values():
-        if not hasattr(_lib, "aphrodite_hermes_call_hook"):
-            continue
-        aphrodite_hermes_call_hook = getattr(_lib, "aphrodite_hermes_call_hook")
-        aphrodite_hermes_call_hook.argtypes = [c_char_p, c_char_p]
-        aphrodite_hermes_call_hook.restype = c_void_p
-        break
-
-    # aphrodite_hermes.h: 56
-    for _lib in _libs.values():
-        if not hasattr(_lib, "aphrodite_hermes_get_schemas"):
-            continue
-        aphrodite_hermes_get_schemas = getattr(_lib, "aphrodite_hermes_get_schemas")
-        aphrodite_hermes_get_schemas.argtypes = []
-        aphrodite_hermes_get_schemas.restype = c_void_p
-        break
-
-    # aphrodite_hermes.h: 61
+    # aphrodite_hermes.h: 39
     for _lib in _libs.values():
         if not hasattr(_lib, "aphrodite_hermes_get_hooks"):
             continue
@@ -111,7 +75,43 @@ def bind_to(_dylib):
         aphrodite_hermes_get_hooks.restype = c_void_p
         break
 
-    # aphrodite_hermes.h: 66
+    # aphrodite_hermes.h: 44
+    for _lib in _libs.values():
+        if not hasattr(_lib, "aphrodite_hermes_get_schema"):
+            continue
+        aphrodite_hermes_get_schema = getattr(_lib, "aphrodite_hermes_get_schema")
+        aphrodite_hermes_get_schema.argtypes = [c_char_p]
+        aphrodite_hermes_get_schema.restype = c_void_p
+        break
+
+    # aphrodite_hermes.h: 49
+    for _lib in _libs.values():
+        if not hasattr(_lib, "aphrodite_hermes_get_schemas"):
+            continue
+        aphrodite_hermes_get_schemas = getattr(_lib, "aphrodite_hermes_get_schemas")
+        aphrodite_hermes_get_schemas.argtypes = []
+        aphrodite_hermes_get_schemas.restype = c_void_p
+        break
+
+    # aphrodite_hermes.h: 54
+    for _lib in _libs.values():
+        if not hasattr(_lib, "aphrodite_hermes_list_tools"):
+            continue
+        aphrodite_hermes_list_tools = getattr(_lib, "aphrodite_hermes_list_tools")
+        aphrodite_hermes_list_tools.argtypes = []
+        aphrodite_hermes_list_tools.restype = c_void_p
+        break
+
+    # aphrodite_hermes.h: 73
+    for _lib in _libs.values():
+        if not hasattr(_lib, "aphrodite_hermes_materialize_directives"):
+            continue
+        aphrodite_hermes_materialize_directives = getattr(_lib, "aphrodite_hermes_materialize_directives")
+        aphrodite_hermes_materialize_directives.argtypes = [c_char_p]
+        aphrodite_hermes_materialize_directives.restype = c_void_p
+        break
+
+    # aphrodite_hermes.h: 78
     for _lib in _libs.values():
         if not hasattr(_lib, "aphrodite_hermes_proxy_health"):
             continue
@@ -120,13 +120,13 @@ def bind_to(_dylib):
         aphrodite_hermes_proxy_health.restype = c_void_p
         break
 
-    # aphrodite_hermes.h: 85
+    # aphrodite_hermes.h: 83
     for _lib in _libs.values():
-        if not hasattr(_lib, "aphrodite_hermes_materialize_directives"):
+        if not hasattr(_lib, "aphrodite_hermes_version"):
             continue
-        aphrodite_hermes_materialize_directives = getattr(_lib, "aphrodite_hermes_materialize_directives")
-        aphrodite_hermes_materialize_directives.argtypes = [c_char_p]
-        aphrodite_hermes_materialize_directives.restype = c_void_p
+        aphrodite_hermes_version = getattr(_lib, "aphrodite_hermes_version")
+        aphrodite_hermes_version.argtypes = []
+        aphrodite_hermes_version.restype = c_void_p
         break
 
     # No inserted files

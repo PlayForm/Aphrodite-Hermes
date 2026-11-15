@@ -354,7 +354,7 @@ Env var overrides: `APHRODITE_ENGINE_THRESHOLD_PCT`, `APHRODITE_CONTEXT_ENGINE`,
 `APHRODITE_AUTO_EXPAND`/`APHRODITE_AUTO_EXPAND_LIMIT`, `APHRODITE_LIVE_CONTAINER`,
 `APHRODITE_RECURSIVE_DEPTH`, `APHRODITE_MAX_REQUEST_BODY_SIZE`, etc. Preview and
 marker format variables, plus the resolution order, are defined in
-`crates/aphrodite/src/templates.rs`.
+`crates/aphrodite/Source/Template/`.
 See [docs/config/env-vars.md](https://github.com/PlayForm/Aphrodite/blob/Current/docs/config/env-vars.md).
 
 ### Runtime home (one decision, shared by both halves)
