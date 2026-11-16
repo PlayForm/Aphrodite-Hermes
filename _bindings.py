@@ -84,7 +84,7 @@ def bind_to(_dylib):
         aphrodite_hermes_get_schema.restype = c_void_p
         break
 
-    # aphrodite_hermes.h: 53
+    # aphrodite_hermes.h: 56
     for _lib in _libs.values():
         if not hasattr(_lib, "aphrodite_hermes_get_schemas"):
             continue
@@ -93,7 +93,7 @@ def bind_to(_dylib):
         aphrodite_hermes_get_schemas.restype = c_void_p
         break
 
-    # aphrodite_hermes.h: 58
+    # aphrodite_hermes.h: 64
     for _lib in _libs.values():
         if not hasattr(_lib, "aphrodite_hermes_list_tools"):
             continue
@@ -102,7 +102,7 @@ def bind_to(_dylib):
         aphrodite_hermes_list_tools.restype = c_void_p
         break
 
-    # aphrodite_hermes.h: 77
+    # aphrodite_hermes.h: 83
     for _lib in _libs.values():
         if not hasattr(_lib, "aphrodite_hermes_materialize_directives"):
             continue
@@ -111,7 +111,7 @@ def bind_to(_dylib):
         aphrodite_hermes_materialize_directives.restype = c_void_p
         break
 
-    # aphrodite_hermes.h: 82
+    # aphrodite_hermes.h: 92
     for _lib in _libs.values():
         if not hasattr(_lib, "aphrodite_hermes_proxy_health"):
             continue
@@ -120,7 +120,7 @@ def bind_to(_dylib):
         aphrodite_hermes_proxy_health.restype = c_void_p
         break
 
-    # aphrodite_hermes.h: 87
+    # aphrodite_hermes.h: 101
     for _lib in _libs.values():
         if not hasattr(_lib, "aphrodite_hermes_version"):
             continue
