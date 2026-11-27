@@ -20,7 +20,7 @@ shape?) for free; deferral is safe - markers persist and stay retrievable;
 batch the retrievals you actually need into one turn. Never re-read a file
 you hold a marker for.
 
-## Features ⚡
+## Features ⚡
 
 - **CCR compression** - tool output becomes a compact
   `<<<CCR:hash|type|size>>>` marker; the full content stays in the store until
